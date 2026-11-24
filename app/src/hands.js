@@ -1,8 +1,7 @@
-// Angled 3D view of both hands, the way the player sees them looking down at the guitar.
-// The hands are see-through, so the fingertips on the strings show; what is behind the neck
-// (the left thumb and palm) is dashed. Left: the fretting hand holding its chord shape, fingers
-// arched onto their strings (1 index … 4 pinky; a flat finger = barre). Right: p i m a by the
-// sound hole; the finger that plucks follows through towards the palm.
+// Angled 3D view of the fretting hand, the way the player sees it looking down at the guitar.
+// The hand is see-through, so the fingertips on the strings show; what is behind the neck
+// (the thumb and palm) is dashed. The hand holds its chord shape, fingers arched onto their
+// strings (1 index … 4 pinky; a flat finger = barre).
 
 const SCALE = 650; // nut to saddle, mm: the frets are spaced like on a real guitar
 const GAP = 8.4; // string spacing, mm
@@ -10,8 +9,8 @@ const EDGE = 2.5 * GAP + 5; // half the neck's width
 const NECK_T = 22; // neck thickness
 const DEG = Math.PI / 180;
 const H = 300;
-const MAX_H = 270; // px: the drawing is never taller than this; a wider box widens the left hand's panel
-const RIGHT_W = 360; // the right hand's panel, at the right end
+const MAX_H = 270; // px: the drawing is never taller than this; a wider box shows more of the neck
+const MIN_W = 640; // the narrowest drawing: a narrower box scales it down
 
 const fretPos = (f) => SCALE * (1 - 2 ** (-f / 12));
 const fretMid = (f) => (f <= 0 ? -9 : (fretPos(f - 1) + fretPos(f)) / 2);
@@ -19,22 +18,11 @@ const pressX = (f) => fretPos(f) - Math.min(9, 0.28 * (fretPos(f) - fretPos(f - 
 const strY = (s) => (s - 2.5) * GAP; // low E nearest the eye, high e far (on top, like the tab)
 
 const FINGER = [null, [40, 25, 19], [44, 28, 20], [42, 26, 19], [33, 20, 17]]; // index … pinky: bones, mm
-const RFINGER = { i: [38, 23, 18], m: [42, 26, 19], a: [40, 24, 18], c: [31, 19, 16] };
 const COLOR = [null, '#4ea1ff', '#4fc94f', '#f2a93b', '#c06cf0']; // fingers 1-4, as on the flat fretboard
 // finger widths at the knuckle, the two joints and the tip, mm
 const FINGER_W = [null, [15, 14, 13, 11.5], [15.5, 14.5, 13.3, 11.8], [14.5, 13.5, 12.5, 11.2], [12.5, 11.6, 10.8, 9.8]];
-const RFINGER_W = { i: [15, 14, 13, 11.5], m: [15.5, 14.5, 13.5, 12], a: [14.5, 13.5, 12.5, 11.2], c: [12.5, 11.6, 10.8, 9.8] };
-const THUMB_W = [20, 17.5, 15];
 const THUMB_L = [30, 24];
-const THUMB_R = [32, 28];
 const ARCH = [[0.42, 0.8], [1, 0.62]]; // where the two finger joints sit along the finger, and how high
-// right hand at rest: each finger prepared on its string (classical: p on the bass, i m a on G B e)
-const R_KNUCKLE = { i: [-16, -15, 42], m: [-4, -13, 44], a: [8, -13, 42], c: [18, -15, 38] };
-const R_REST = { i: [-18, strY(3), 2.2], m: [-6, strY(4), 2.2], a: [6, strY(5), 2.2], c: [17, strY(5) + 7, 13] };
-const R_FOLLOW = { p: [2, 8, 3], i: [1, -10, 8], m: [1, -10, 8], a: [1, -10, 8] }; // follow-through, mm
-const PLUCK_IN = 0.09; // s to go through the string
-const PLUCK_OUT = 0.28; // s to come back
-
 const add = (a, b) => a.map((v, i) => v + b[i]);
 const sub = (a, b) => a.map((v, i) => v - b[i]);
 const mul = (a, k) => a.map((v) => v * k);
@@ -237,42 +225,27 @@ function ribbon(P, pts, w) {
   return [...left, ...right.reverse()].map(xy).join(' ');
 }
 
-/** Number of seconds' follow-through of a pluck at `t` s after it: 0 → 1 (through the string) → 0. */
-const follow = (t) => (t < 0 ? 0 : t < PLUCK_IN ? t / PLUCK_IN : Math.max(0, 1 - (t - PLUCK_IN) / PLUCK_OUT));
-
 const DEFS =
   '<linearGradient id="hv-g-board" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#24150e"/><stop offset=".45" stop-color="#3b2418"/><stop offset="1" stop-color="#2a1810"/></linearGradient>' +
   '<linearGradient id="hv-g-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b4429"/><stop offset="1" stop-color="#2a190f"/></linearGradient>' +
-  '<linearGradient id="hv-g-top" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9a065"/><stop offset="1" stop-color="#9c733f"/></linearGradient>' +
   '<radialGradient id="hv-g-pearl" cx=".4" cy=".35"><stop offset="0" stop-color="#fffaf0"/><stop offset=".55" stop-color="#ddd5c6"/><stop offset="1" stop-color="#9a9284"/></radialGradient>' +
-  '<radialGradient id="hv-g-hole" cx=".5" cy=".42"><stop offset=".6" stop-color="#050403"/><stop offset="1" stop-color="#1c130b"/></radialGradient>' +
   '<filter id="hv-f-shadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter>' +
   '<filter id="hv-f-soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="0.9"/></filter>';
 
 export function createHandView(root) {
   root.innerHTML =
-    `<svg role="img" aria-label="Both hands seen from the player's eyes: left-hand fingers on the neck, right-hand p i m a by the sound hole">` +
-    `<defs>${DEFS}<clipPath id="hv-cl"><rect class="hv-cl" height="${H}"/></clipPath><clipPath id="hv-cr"><rect class="hv-cr" width="${RIGHT_W}" height="${H}"/></clipPath></defs>` +
-    `<g class="hv-l" clip-path="url(#hv-cl)"></g><g class="hv-r" clip-path="url(#hv-cr)"></g>` +
-    `<line class="hv-split" y1="0" y2="${H}"/>` +
-    `<text class="hv-title" x="14" y="20">LEFT HAND · as you see it looking down</text>` +
-    `<text class="hv-title hv-title-r" y="20">RIGHT HAND · from the front</text></svg><div class="hv-cap"></div>`;
+    `<svg role="img" aria-label="The fretting hand seen from the player's eyes: its fingers on the neck">` +
+    `<defs>${DEFS}</defs><g class="hv-l"></g>` +
+    `<text class="hv-title" x="14" y="20">LEFT HAND · as you see it looking down</text></svg><div class="hv-cap"></div>`;
   const svg = root.querySelector('svg');
   const gL = root.querySelector('.hv-l');
-  const gR = root.querySelector('.hv-r');
   const cap = root.querySelector('.hv-cap');
 
-  // the drawing is as wide as its box allows at MAX_H high (1000 at least): the left panel takes the rest
-  let W = 1000;
-  let SPLIT = W - RIGHT_W;
+  // the drawing is as wide as its box allows at MAX_H high (MIN_W at least)
+  let W = MIN_W;
   function layout() {
-    W = Math.max(1000, Math.round((H * (root.clientWidth || 1000)) / MAX_H));
-    SPLIT = W - RIGHT_W;
+    W = Math.max(MIN_W, Math.round((H * (root.clientWidth || MIN_W)) / MAX_H));
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    root.querySelector('.hv-cl').setAttribute('width', SPLIT);
-    root.querySelector('.hv-cr').setAttribute('x', SPLIT);
-    for (const a of ['x1', 'x2']) root.querySelector('.hv-split').setAttribute(a, SPLIT);
-    root.querySelector('.hv-title-r').setAttribute('x', SPLIT + 14);
   }
   layout();
   new ResizeObserver(() => {
@@ -282,21 +255,18 @@ export function createHandView(root) {
   }).observe(root);
 
   // what is drawn (v) eases towards where it should be (t), so the hands glide
-  const cur = { camX: 0, handX: 0, tips: [], flat: [], thumbR: 0 };
+  const cur = { camX: 0, handX: 0, tips: [], flat: [] };
   let goal = null;
-  let info = { held: [-1, -1, -1, -1, -1, -1], fingers: [-1, -1, -1, -1, -1, -1], sounding: [], plucks: [], next: null };
+  let info = { held: [-1, -1, -1, -1, -1, -1], fingers: [-1, -1, -1, -1, -1, -1], sounding: [], next: null };
   let labels = ['E', 'A', 'D', 'G', 'B', 'e'];
-  let lastKey = null;
   let hand = 1;
   let capo = 0; // frets count from the capo, as in the tab
-  let thumbS = 1;
-  const pluckAt = {};
   let raf = 0;
   let last = 0;
 
   function targets() {
     const handX = (fretMid(hand + capo) + fretMid(hand + capo + 3)) / 2 - 3;
-    const g = { camX: Math.max(105, handX + 12), handX, tips: [null], flat: [null], thumbR: thumbS };
+    const g = { camX: Math.max(105, handX + 12), handX, tips: [null], flat: [null] };
     for (let k = 1; k <= 4; k++) {
       const strings = info.fingers.map((f, s) => (f === k && info.held[s] > 0 ? s : -1)).filter((s) => s >= 0);
       const nx = info.next?.fingers?.findIndex((f, s) => f === k && info.next.frets[s] > 0) ?? -1;
@@ -324,10 +294,9 @@ export function createHandView(root) {
     };
     // a value that ever went wrong would stay wrong for good: start it again from where it should be
     const bad = (v) => !Number.isFinite(v);
-    if ([cur.camX, cur.handX, cur.thumbR, ...cur.tips.slice(1).flat(), ...cur.flat.slice(1)].some(bad)) Object.assign(cur, structuredClone(goal));
+    if ([cur.camX, cur.handX, ...cur.tips.slice(1).flat(), ...cur.flat.slice(1)].some(bad)) Object.assign(cur, structuredClone(goal));
     cur.camX = step(cur.camX, goal.camX);
     cur.handX = step(cur.handX, goal.handX);
-    cur.thumbR = step(cur.thumbR, goal.thumbR);
     for (let k = 1; k <= 4; k++) {
       cur.tips[k] = cur.tips[k].map((v, i) => step(v, goal.tips[k][i]));
       cur.flat[k] = step(cur.flat[k], goal.flat[k]);
@@ -342,9 +311,8 @@ export function createHandView(root) {
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now;
     const moving = ease(1 - Math.exp(-dt / 0.07));
-    render(now);
-    const plucking = Object.values(pluckAt).some((t) => now - t < (PLUCK_IN + PLUCK_OUT) * 1000);
-    raf = moving || plucking ? requestAnimationFrame(frame) : 0;
+    render();
+    raf = moving ? requestAnimationFrame(frame) : 0;
   }
   function kick() {
     if (raf) return;
@@ -383,7 +351,7 @@ export function createHandView(root) {
 
   function renderLeft() {
     // as you see it looking down at your own hand: high e far (on top, like the tab), fingers coming over it
-    const P = camera({ cx: SPLIT / 2, cy: 190, F: 740, D: 260, at: [cur.camX, 0, 0], tilt: 62 * DEG });
+    const P = camera({ cx: W / 2, cy: 190, F: 740, D: 260, at: [cur.camX, 0, 0], tilt: 62 * DEG });
     const SV = [0.22, -0.3]; // the light comes from the nut side and from beyond the high e
     const xa = Math.max(-60, cur.camX - 420);
     const xb = cur.camX + 420;
@@ -473,66 +441,14 @@ export function createHandView(root) {
     gL.innerHTML = out + tipsOut;
   }
 
-  function renderRight(now) {
-    // from the front, like a listener a little below the guitar: strings across, the neck to the right,
-    // the hand hanging from above with the thumb ahead of the fingers, and the fingers' curl shows
-    const P = camera({ cx: SPLIT + (W - SPLIT) / 2 + 10, cy: 200, F: 640, D: 260, at: [-14, 0, 12], yaw: 180 * DEG, tilt: 62 * DEG });
-    const SV = [-0.25, 0.32]; // the light comes from the bridge side and from above the bass strings
-    const TOP = -9; // the guitar's top, under the strings
-    let out = '';
-    out += poly(P, [[-420, -140, TOP], [300, -140, TOP], [300, 140, TOP], [-420, 140, TOP]], 'hv-top');
-    out += grain(P, -420, 300, -140, 140, TOP, 34, 'hv-spruce');
-    for (const [r, cls] of [[54, 'hv-ros-a'], [51, 'hv-ros-b'], [47.5, 'hv-ros-a']]) out += disc(P, [-64, 0, TOP], r, cls, 44);
-    out += disc(P, [-64, 0, TOP], 43, 'hv-hole', 44);
-    out += poly(P, [[-400, -EDGE, TOP], [-112, -EDGE, TOP], [-112, -EDGE, 0], [-400, -EDGE, 0]], 'hv-neck-side');
-    out += poly(P, [[-400, -EDGE, 0], [-112, -EDGE, 0], [-112, EDGE, 0], [-400, EDGE, 0]], 'hv-board');
-    out += poly(P, [[-112, -EDGE, 0], [-112, EDGE, 0], [-112, EDGE, TOP], [-112, -EDGE, TOP]], 'hv-board-end');
-
-    const off = (f) => mul(R_FOLLOW[f], follow((now - (pluckAt[f] ?? -1e9)) / 1000));
-    const plucking = new Set(info.plucks.map((p) => p.f));
-    const thumbTip = add([-42, strY(cur.thumbR), 2], off('p'));
-    const thumb = tube(P, joints([-18, -38, 48], thumbTip, THUMB_R, 0, [[0.52], [0.35]]), THUMB_W);
-    const tips = {};
-    const fingers = ['i', 'm', 'a', 'c'].map((f) => { // farthest from the eye first
-      tips[f] = f === 'c' ? R_REST.c : add(R_REST[f], off(f));
-      return tube(P, joints(R_KNUCKLE[f], tips[f], RFINGER[f]), RFINGER_W[f]);
-    });
-    const arm = tube(P, [[16, -60, 66], [110, -140, 104]], [52, 64], { nail: false, creases: false });
-    const backPts = [[-26, -42, 52], [-23, -16, 41], [-4, -12, 46], [24, -15, 38], [36, -58, 62], [-4, -64, 66]];
-
-    let sh = '';
-    for (let s = 0; s < 6; s++) sh += line(P, [-300, strY(s) + SV[1] * 10.6, TOP], [260, strY(s) + SV[1] * 10.6, TOP], 'hv-sh-str', 0.6 * P.k([0, 0, 0]));
-    for (const t of [thumb, ...fingers, arm]) sh += shadow(P, t.line, TOP, SV);
-    sh += `<polygon class="hv-sh-fill" points="${backPts.map((p) => xy(P([p[0] + SV[0] * (p[2] - TOP), p[1] + SV[1] * (p[2] - TOP), TOP]))).join(' ')}"/>`;
-    out += `<g class="hv-shadow">${sh}</g>`;
-    for (let s = 0; s < 6; s++) out += string(P, [-300, strY(s), 1.6], [260, strY(s), 1.6], s, info.sounding[s]);
-
-    // thumb ahead of the fingers towards the neck, the fingers, then the forearm and back of the hand over them
-    let hand3 = thumb.svg + fingers.map((t) => t.svg).join('') + arm.svg + blob(P, backPts, 'hv-back', 0.5);
-    const wrist = lerp(backPts[4], backPts[5], 0.5);
-    for (const f of ['i', 'm', 'a', 'c']) {
-      const k3 = add(R_KNUCKLE[f], [0, -3, 4]);
-      const q = P(k3);
-      const kk = P.k(k3);
-      hand3 += `<path class="hv-tendon" d="M${xy(P(lerp(wrist, k3, 0.25)))}L${xy(P(lerp(wrist, k3, 0.9)))}"/>` +
-        `<ellipse class="hv-knuckle" cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" rx="${(4.8 * kk).toFixed(1)}" ry="${(3 * kk).toFixed(1)}"/>`;
-    }
-    out += `<g class="hv-hand">${hand3}</g>`;
-    let tipsOut = '';
-    for (const f of ['i', 'm', 'a']) tipsOut += badge(P(tips[f]), f, `hv-pima ${f}${plucking.has(f) ? ' on' : ''}`);
-    tipsOut += badge(P(thumbTip), 'p', `hv-pima p${plucking.has('p') ? ' on' : ''}`);
-    gR.innerHTML = out + tipsOut;
-  }
-
-  /** A small labelled marker on a fingertip: 1-4 on the left hand, p i m a on the right. */
+  /** A small labelled marker on a fingertip: 1 index … 4 pinky. */
   function badge(q, label, cls, color) {
     return `<circle class="${cls}" cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="6.8"${color ? ` style="--c:${color}"` : ''}/>` +
       `<text class="hv-badge-t" x="${q[0].toFixed(1)}" y="${(q[1] + 3.4).toFixed(1)}">${label}</text>`;
   }
 
-  function render(now = performance.now()) {
+  function render() {
     renderLeft();
-    renderRight(now);
   }
 
   return {
@@ -542,22 +458,13 @@ export function createHandView(root) {
     /**
      * Show a moment of the music.
      * active: something is being played · hand: index-finger fret · held/fingers: the chord shape the
-     * left hand holds (fret / finger per string) · sounding: strings that sound now · plucks: [{s, f: 'p'|'i'|'m'|'a'}]
-     * · next: {frets, fingers} coming up · capo: its fret (frets count from it) · key: changes on every new pluck · caption: tip for this passage (HTML)
+     * hand holds (fret / finger per string) · sounding: strings that sound now
+     * · next: {frets, fingers} coming up · capo: its fret (frets count from it) · caption: tip for this passage (HTML)
      */
     show(next) {
       info = { ...info, ...next };
       if (info.hand != null) hand = info.hand;
       capo = info.capo || 0;
-      const bass = info.plucks.filter((p) => p.f === 'p').map((p) => p.s);
-      const nextBass = info.next?.frets.findIndex((f, s) => s < 3 && f >= 0) ?? -1;
-      if (bass.length) thumbS = Math.min(...bass);
-      else if (nextBass >= 0) thumbS = nextBass;
-      if (info.key !== lastKey) {
-        const t = performance.now();
-        for (const p of info.plucks) pluckAt[p.f] = t;
-        lastKey = info.key;
-      }
       const first = !goal;
       goal = targets();
       if (first) Object.assign(cur, structuredClone(goal));

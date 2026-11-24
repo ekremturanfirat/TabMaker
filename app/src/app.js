@@ -403,18 +403,21 @@ function renderHtml() {
     });
     html += `<div class="system">${nums}\n`;
     for (let s = 5; s >= 0; s--) {
-      html += `<span class="lbl">${esc(tuning.labels[s].padEnd(labelW))}</span>|`;
+      // the string is drawn as a line (CSS); its dashes stay in the text, unseen, so copying still gives a tab
+      html += `<span class="lbl">${esc(tuning.labels[s].padEnd(labelW))}</span><span class="str s${s}"><i class="bl">|</i>`;
       row.forEach((meas, i) => {
         const base = q.barStarts[m + i];
         meas.forEach((col, k) => {
           // technique marks are drawn as symbols (drawTechniques); the letters' room stays as dashes
           const played = col && col.frets[s] >= 0;
-          const txt = played ? String(col.frets[s]).padEnd(cellString(col, s).length, '-') : cellString(col, s);
-          html += played ? `<span class="c n" data-i="${base + k}" data-s="${s}">${txt}</span>` : `<span class="c" data-i="${base + k}">${txt}</span>`;
+          const fret = played && String(col.frets[s]);
+          html += played
+            ? `<span class="c n" data-i="${base + k}" data-s="${s}"><b>${fret}</b>${'-'.repeat(cellString(col, s).length - fret.length)}</span>`
+            : `<span class="c" data-i="${base + k}">${cellString(col, s)}</span>`;
         });
-        html += '|';
+        html += '<i class="bl">|</i>';
       });
-      html += '\n';
+      html += '</span>\n';
     }
     html += '</div>';
     m += n;
@@ -524,12 +527,12 @@ function highlight(time) {
 }
 
 // ---------- live fretboard: where the fingers go right now ----------
-// Left hand: a hand that slides along the neck, fingers 1-4 pressing their strings (index on the
-// hand position's fret). Right hand: p i m a on the strings being plucked, by the sound hole.
+// The fretting hand: it slides along the neck, fingers 1-4 pressing their strings (index on the
+// hand position's fret).
 
 const fb = { n: 15, key: null, layer: null, hand: null, capo: 0 };
-const FB_W = 1000; // end of the neck; the right-hand zone is drawn after it
-const FB_PICK = 140;
+const FB_W = 1000; // end of the neck
+const FB_PICK = 24; // the strings run on a little past it
 const FB_NUT = 70;
 const FB_TOP = 62; // room above the strings for the hand
 const FB_GAP = 18;
@@ -542,7 +545,6 @@ const dotX = (f) => (f === 0 ? FB_NUT - 18 : (fretX(f - 1) + fretX(f)) / 2);
 const tabX = (f) => (f === 0 && fb.capo ? fretX(fb.capo) - 9 : dotX(f && f + fb.capo));
 const stringY = (s) => FB_TOP + (5 - s) * FB_GAP; // high e on top, like the tab
 const REST_Y = FB_TOP - 12; // a finger that presses nothing hovers above the high e
-const PIMA = ['p', 'p', 'p', 'i', 'm', 'a']; // classical rule: thumb on the 3 bass strings, i m a on G B e
 
 function drawFretboard() {
   const { tuning, q, capo } = state.tab;
@@ -551,9 +553,7 @@ function drawFretboard() {
   fb.n = Math.min(24, Math.max(12, highest + 1));
   const bottom = stringY(0);
   const fw = fretW();
-  let svg = `<svg viewBox="0 0 ${FB_W + FB_PICK} ${bottom + 30}" role="img" aria-label="Fretboard: left-hand fingers and right-hand p i m a for the notes being played">`;
-  // right-hand zone: sound hole
-  svg += `<circle class="fb-hole" cx="${FB_W + 78}" cy="${(FB_TOP + bottom) / 2}" r="${(bottom - FB_TOP) / 2 + 14}"/>`;
+  let svg = `<svg viewBox="0 0 ${FB_W + FB_PICK} ${bottom + 30}" role="img" aria-label="Fretboard: the fretting hand's fingers for the notes being played">`;
   // inlay dots
   for (let f = 1; f <= fb.n; f++) {
     const x = dotX(f);
@@ -576,7 +576,6 @@ function drawFretboard() {
   for (let f = 1; f <= fb.n; f++) {
     if ([3, 5, 7, 9, 12, 15, 17, 19, 21, 24].includes(f)) svg += `<text class="fb-num" x="${dotX(f)}" y="${bottom + 26}">${f}</text>`;
   }
-  svg += `<text class="fb-zone" x="${FB_W + 78}" y="${FB_TOP - 30}">right hand</text>`;
   svg += `<g class="fb-live"></g>`;
   // the left hand, drawn at fret 1 and moved with a transform so it glides between positions
   svg += `<g class="fb-handg" style="transform: translateX(${tabX(1)}px)">`;
@@ -655,16 +654,13 @@ function updateFretboard(idx) {
     cur.frets.forEach((f, s) => {
       if (f < 0) return;
       if (f === 0) g += `<circle class="fb-open" cx="${tabX(0)}" cy="${stringY(s)}" r="7"/>`;
-      // right hand: which finger plucks this string
-      const p = PIMA[s];
-      g += `<circle class="fb-pima ${p}" cx="${FB_W + 78}" cy="${stringY(s)}" r="8.5"/><text class="fb-pima-t" x="${FB_W + 78}" y="${stringY(s) + 4}">${p}</text>`;
     });
   }
   fb.layer.innerHTML = g;
   poseHand(cur);
 }
 
-// ---------- hand view: both hands drawn in 3D, as the player sees them ----------
+// ---------- hand view: the fretting hand drawn in 3D, as the player sees it ----------
 
 const hv = { view: createHandView(el.handview), key: null };
 
@@ -694,7 +690,7 @@ function heldShape(i) {
   return { frets, fingers };
 }
 
-/** How to hold the hands for what is played around column i: arpeggio, chord, barre or single notes. */
+/** How to hold the hand for what is played around column i: arpeggio, chord, barre or single notes. */
 function handTip(i, held) {
   const { q } = state.tab;
   const c = q.columns[i];
@@ -706,15 +702,15 @@ function handTip(i, held) {
   const rolling = near.length >= 4 && near.filter((o) => played(o) <= 2).length >= near.length - 1 && used.size >= 4;
   if (played(c) <= 2 && rolling && held.frets.filter((f) => f >= 0).length >= 3) {
     return '<b>Arpeggio:</b> keep the whole chord shape pressed (every numbered fingertip), not only the note you hear, so the strings ring into each other' +
-      `${barre ? ', the index lying flat as a barre' : ''}. The right hand stays still over the sound hole; only the fingers move: the thumb <b>p</b> ahead of <b>i m a</b> towards the neck, each finger plucking towards the palm, then back onto its string.`;
+      `${barre ? ', the index lying flat as a barre' : ''}.`;
   }
   if (barre) {
     return '<b>Barre:</b> the index lies flat across the strings right behind the fret, a little on its side; the thumb behind the neck, opposite the middle finger, presses against it. Arch the other fingers so they touch only their own string.';
   }
   if (played(c) >= 3) {
-    return '<b>Chord:</b> put all the fingers down together, on the very fingertips, just behind the frets; arch the knuckles so no finger mutes the next string. Pluck <b>p i m a</b> at once, closing the hand a little like a soft grip.';
+    return '<b>Chord:</b> put all the fingers down together, on the very fingertips, just behind the frets; arch the knuckles so no finger mutes the next string.';
   }
-  return '<b>Single notes:</b> press with the fingertip just behind the fret; fingers you don’t need hover close above the strings, ready for the next note. Thumb behind the neck, wrist straight. Pick with <b>i</b> and <b>m</b> in turn, <b>p</b> on the bass strings.';
+  return '<b>Single notes:</b> press with the fingertip just behind the fret; fingers you don’t need hover close above the strings, ready for the next note. Thumb behind the neck, wrist straight.';
 }
 
 function updateHands(idx) {
@@ -736,11 +732,9 @@ function updateHands(idx) {
     held: held.frets,
     fingers: held.fingers,
     sounding: cur ? cur.frets.map((f) => f >= 0) : [],
-    plucks: cur ? cur.frets.map((f, s) => (f >= 0 ? { s, f: PIMA[s] } : null)).filter(Boolean) : [],
     // the next notes outside the shape being held: where the fingers have to move to
     next: nextCol && { frets: nextCol.frets.map((f, s) => (held.frets[s] === f ? -1 : f)), fingers: nextCol.fingers },
-    key,
-    caption: cur ? handTip(i, held) : 'Rest: the hands stay where they are, relaxed, ready for the next notes.',
+    caption: cur ? handTip(i, held) : 'Rest: the hand stays where it is, relaxed, ready for the next notes.',
   });
 }
 

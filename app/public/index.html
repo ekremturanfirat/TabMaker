@@ -15,7 +15,7 @@
   :root {
     --bg: #fbfaf7; --surface: #f3f0ea; --paper: #fffefb; --hairline: #e4dfd6;
     --text: #22262b; --muted: #63676d; --ink: #1c2e45; --accent: #a14a24;
-    --err: #a3301c; --note: var(--ink);
+    --err: #a3301c; --note: var(--ink); --string: #d3ccc1; --barline: #b9b1a5;
     --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
     --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
     --mono: "Cascadia Mono", "JetBrains Mono", Consolas, ui-monospace, monospace;
@@ -107,17 +107,15 @@
   .player label { color: var(--muted); font-size: .85rem; display: flex; gap: 6px; align-items: center; }
 
   /* live fretboard */
-  .fretboard { flex: 1 1 100%; background: var(--bg); border-radius: 6px; padding: 6px 8px 0; }
+  .fretboard { background: var(--bg); border-radius: 6px; padding: 6px 8px 0; }
   .fretboard svg { display: block; width: 100%; height: auto; max-height: 220px; }
   .fb-string { stroke: #9b8b7a; }
   .fb-fret { stroke: #3d352e; stroke-width: 2; }
   .fb-nut { stroke: #d8cbbd; stroke-width: 5; }
   .fb-capo { fill: #3a3a42; stroke: #8a8a96; stroke-width: 1.5; }
   .fb-mark { fill: #2a2420; }
-  .fb-hole { fill: #1a1512; stroke: #3a332d; stroke-width: 2; }
   .fb-label, .fb-num { fill: var(--muted); font: 600 12px var(--mono); }
   .fb-num { text-anchor: middle; font-size: 11px; }
-  .fb-zone { fill: var(--muted); font: 600 11px var(--sans); text-anchor: middle; }
   .fb-next { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 3 2; opacity: .6; }
   .fb-open { fill: none; stroke: var(--accent); stroke-width: 2.4; }
   /* left hand: glides along the neck; fingers 1 index, 2 middle, 3 ring, 4 pinky */
@@ -134,13 +132,12 @@
   .fb-tip.f2 { stroke: #5cd65c; } .fb-tip.f2.on { fill: #3fae3f; }
   .fb-tip.f3 { stroke: #f2a93b; } .fb-tip.f3.on { fill: #e0922a; }
   .fb-tip.f4 { stroke: #d07cff; } .fb-tip.f4.on { fill: #b05ce0; }
-  /* right hand: p thumb, i index, m middle, a ring */
-  .fb-pima { fill: #7fd1c1; } .fb-pima.p { fill: #f2d28a; }
-  .fb-pima-t { fill: #14110f; font: 700 12px var(--mono); text-anchor: middle; }
 
-  /* hand view: both hands in 3D, see-through, as the player sees them */
+  /* hand view: the fretting hand in 3D, see-through, as the player sees it; the "hands" picker under it */
+  .handcol { flex: 1 1 100%; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .handcol .handsel { align-self: flex-start; }
   .player select { background: var(--paper); color: var(--text); border: 1px solid var(--hairline); border-radius: 4px; padding: 3px 6px; font: inherit; }
-  .handview { flex: 1 1 100%; background: var(--bg); border-radius: 6px; overflow: hidden; }
+  .handview { background: var(--bg); border-radius: 6px; overflow: hidden; }
   .handview svg { display: block; width: 100%; height: auto; max-height: 270px; }
   .hv-cap { padding: 6px 12px 8px; font-size: 13px; line-height: 1.45; color: var(--muted); border-top: 1px solid var(--hairline); min-height: 3.4em; }
   .hv-cap b { color: var(--text); }
@@ -148,7 +145,7 @@
   /* the player's video, with the fret lines from the neck marks */
   /* next to the hand view in the sticky player (below it on narrow screens) */
   .videopanel { flex: 1 1 380px; align-self: stretch; background: var(--bg); color: var(--text); border-radius: 6px; overflow: hidden; }
-  .player:has(.videopanel:not([hidden])) .handview, .player:has(.videopanel:not([hidden])) .fretboard { flex: 1 1 520px; }
+  .player:has(.videopanel:not([hidden])) .handcol { flex: 1 1 520px; }
   .vp-stage { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; }
   .vp-video { display: block; max-width: 100%; max-height: 300px; width: auto; height: auto; }
   /* too narrow for side by side: the video and the hand view would fill the screen, so stop sticking */
@@ -160,18 +157,11 @@
   .vp-msg { padding: 6px 10px 8px; }
   .videopanel [hidden] { display: none !important; } /* .player label sets display, which would show hidden ones */
   .hv-title { fill: #d9cbbb; font: 600 11px var(--sans); letter-spacing: .08em; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
-  .hv-split { stroke: var(--hairline); }
   .hv-board { fill: url(#hv-g-board); }
-  .hv-board-end { fill: #1c110b; }
   .hv-grain { fill: none; stroke: #120a06; stroke-width: .7; }
   .hv-head { fill: #17100b; }
   .hv-neck-side { fill: url(#hv-g-side); }
   .hv-binding { stroke: #e8dcc4; opacity: .8; }
-  .hv-top { fill: url(#hv-g-top); }
-  .hv-spruce { fill: none; stroke: #7a5630; stroke-width: .6; }
-  .hv-hole { fill: url(#hv-g-hole); }
-  .hv-ros-a { fill: none; stroke: #2a1b10; stroke-width: 2.2; }
-  .hv-ros-b { fill: none; stroke: #e2d2b0; stroke-width: 1.6; stroke-dasharray: 2 1.4; }
   .hv-inlay { fill: url(#hv-g-pearl); opacity: .9; }
   .hv-fret { stroke: #77736c; stroke-linecap: round; }
   .hv-fret-hi { stroke: #f4f1ea; stroke-linecap: round; opacity: .85; }
@@ -188,7 +178,6 @@
   .hv-vib { stroke: #ffc46b; opacity: .22; }
   .hv-shadow { fill: none; stroke: #000; stroke-linecap: round; stroke-linejoin: round; opacity: .42; filter: url(#hv-f-shadow); }
   .hv-sh-str { opacity: .7; }
-  .hv-sh-fill { fill: #000; stroke: none; opacity: .8; }
   .hv-contact { fill: #000; stroke: none; }
   .hv-lbl { fill: var(--muted); font: 600 11px var(--mono); }
   .hv-num { fill: #d9c9b4; font: 600 11px var(--mono); text-anchor: middle; opacity: .75; }
@@ -202,7 +191,6 @@
   .hv-lit { fill: #f6d3b8; opacity: .6; filter: url(#hv-f-soft); }
   .hv-back { fill: #c99171; stroke: #8c583c; stroke-width: 1; }
   .hv-knuckle { fill: #f2c9ab; opacity: .5; filter: url(#hv-f-soft); }
-  .hv-tendon { stroke: #f2c9ab; stroke-width: 2; stroke-linecap: round; opacity: .22; filter: url(#hv-f-soft); }
   .hv-crease { fill: none; stroke: #7d4b33; stroke-width: .9; stroke-linecap: round; opacity: .55; }
   .hv-nail { fill: #f1d0c4; stroke: #b98270; stroke-width: .6; }
   .hv-nail-tip { fill: #fbf1ea; opacity: .8; }
@@ -215,11 +203,6 @@
   .hv-tip.on { fill: var(--c); fill-opacity: .6; }
   .hv-tip.now { fill-opacity: 1; filter: drop-shadow(0 0 4px var(--c)); }
   .hv-badge-t { fill: #fff; font: 700 9.5px var(--mono); text-anchor: middle; pointer-events: none; }
-  .hv-pima { fill: rgba(20,16,13,.75); stroke: #7fd1c1; stroke-width: 1.8; }
-  .hv-pima.p { stroke: #f2d28a; }
-  .hv-pima.on { fill: #7fd1c1; filter: drop-shadow(0 0 4px #7fd1c1); }
-  .hv-pima.p.on { fill: #f2d28a; filter: drop-shadow(0 0 4px #f2d28a); }
-  .hv-pima.on + .hv-badge-t { fill: #14110f; }
 
   /* the tab: printed on paper */
   #tab { font-family: var(--mono); font-size: 14px; line-height: 1.35; white-space: pre; overflow-x: auto;
@@ -232,13 +215,19 @@
   #compareOut a { color: var(--accent); }
   #tab .lbl { color: var(--muted); }
   #tab .c { cursor: pointer; }
-  #tab .c.n { color: var(--note); font-weight: 600; }
+  /* each string is a thin line; the dash characters stay (for copying) but are not shown */
+  #tab .str { display: inline-block; color: transparent; background: linear-gradient(var(--string), var(--string)) 0 calc(50% - 1px) / 100% 1px no-repeat; }
+  #tab .bl { display: inline-block; background: linear-gradient(var(--barline), var(--barline)) 50% 0 / 1px 100% no-repeat; }
+  #tab .s5 .bl { background-position: 50% 100%; background-size: 1px 50%; }
+  #tab .s0 .bl { background-size: 1px 50%; }
+  #tab .c.n b { color: var(--note); font-weight: 600; background: var(--cell, var(--paper)); box-shadow: -2px 0 var(--cell, var(--paper)), 2px 0 var(--cell, var(--paper)); }
   #tab .system { position: relative; }
   #tab svg.tech { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
   #tab svg.tech path { fill: none; stroke: #2a7a74; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
   #tab svg.tech text { fill: #2a7a74; font: 600 10px var(--sans); text-anchor: middle; }
-  #tab .c.hi { background: rgba(161,74,36,.18); color: var(--accent); border-radius: 2px; }
-  #tab .c:hover { background: rgba(28,46,69,.08); }
+  #tab .c.hi { background: rgba(161,74,36,.18); border-radius: 2px; --cell: #eeded4; }
+  #tab .c.hi b { color: var(--accent); }
+  #tab .c:hover { background: rgba(28,46,69,.08); --cell: #edece9; }
 
   .notes { margin-top: 8px; font-size: .95rem; }
   .notes h3 { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .12em; color: var(--muted);
@@ -355,9 +344,11 @@
       <button id="copy" type="button">Copy text</button>
       <button id="download" type="button">Download .txt</button>
       <label><input id="follow" type="checkbox" checked> follow</label>
-      <label>hands <select id="handsMode"><option value="3d">3D view</option><option value="flat">flat fretboard</option><option value="off">hidden</option></select></label>
-      <div id="handview" class="handview"></div>
-      <div id="fretboard" class="fretboard" hidden></div>
+      <div class="handcol">
+        <div id="handview" class="handview"></div>
+        <div id="fretboard" class="fretboard" hidden></div>
+        <label class="handsel">hand <select id="handsMode"><option value="3d">3D view</option><option value="flat">flat fretboard</option><option value="off">hidden</option></select></label>
+      </div>
       <div id="videoPanel" class="videopanel" hidden></div>
     </div>
     <div id="tab"></div>
@@ -365,8 +356,8 @@
       <h3>Good to know</h3>
       <ul>
         <li>Click any spot in the tab to jump the song there. The highlighted column follows the music.</li>
-        <li>The <b>3D hand view</b> under the player shows both hands the way you see them looking down at your guitar. The hands are see-through so you can see where every fingertip presses; the dashed outline is the thumb and palm behind the neck. Left hand: <b>1</b> index, <b>2</b> middle, <b>3</b> ring, <b>4</b> pinky; a bright tip is the note you hear now, a dimmer one is a finger that stays down (in an arpeggio the whole chord shape stays pressed), an empty one hovers, ready; dashed rings = where the fingers go next. Right hand: <b>p</b> thumb, <b>i</b> index, <b>m</b> middle, <b>a</b> ring; the finger that plucks moves through the string towards the palm. The line under it tells how to hold the hands for that passage. “hands” switches to the flat fretboard or hides it.</li>
-        <li>The flat fretboard shows both hands. Left hand: the hand slides to its position and each finger presses its string (<b>1</b> index, <b>2</b> middle, <b>3</b> ring, <b>4</b> pinky; a long bar = barre); a ring at the nut = open string; dashed circles = the next notes. Right hand, by the sound hole: <b>p</b> thumb, <b>i</b> index, <b>m</b> middle, <b>a</b> ring on the strings being plucked.</li>
+        <li>The <b>3D hand view</b> under the player shows the fretting hand the way you see it looking down at your guitar. The hand is see-through so you can see where every fingertip presses; the dashed outline is the thumb and palm behind the neck. <b>1</b> index, <b>2</b> middle, <b>3</b> ring, <b>4</b> pinky; a bright tip is the note you hear now, a dimmer one is a finger that stays down (in an arpeggio the whole chord shape stays pressed), an empty one hovers, ready; dashed rings = where the fingers go next. The line under it tells how to hold the hand for that passage. “hand”, under the drawing, switches to the flat fretboard or hides it.</li>
+        <li>The flat fretboard: the hand slides to its position and each finger presses its string (<b>1</b> index, <b>2</b> middle, <b>3</b> ring, <b>4</b> pinky; a long bar = barre); a ring at the nut = open string; dashed circles = the next notes.</li>
         <li>Press <b>Space</b> to play / pause. Scroll yourself any time; “follow” waits a few seconds before it moves the page again.</li>
         <li>Playing techniques: an arc joins a hammer-on or pull-off, a slanted line is a slide up / down, a curved arrow is a bend (½ = half step, full = whole step) and the arrow back down its release, a wavy line is vibrato. In the .txt they are written h, p, /, \, b, r and ~. They are guessed from the sound; set “Techniques” in Options to see more or none.</li>
         <li>“Play the tab” plays back what the tab says, so you can compare it with the real song by ear. Tick “tab along” to hear the tab quietly on top of the song: wrong notes stand out.</li>
