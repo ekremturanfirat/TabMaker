@@ -1,0 +1,4 @@
+# this computer only
+.claude/
+# website build (made by GitHub Actions, or `npm run build:site` to preview)
+_site/

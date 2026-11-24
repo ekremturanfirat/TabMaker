@@ -1,0 +1,55 @@
+TabMaker - turns songs into guitar tab
+=====================================
+
+FIRST TIME ON A COMPUTER (Windows)
+  1. Put this TabMaker folder anywhere (for example in Documents).
+  2. Double-click "Start TabMaker".
+     If Windows says "Windows protected your PC", click "More info" -> "Run anyway" (only once).
+     The first time it may install Python and Deno. Click "Yes" if Windows asks.
+     If the black window says "double-click Start TabMaker again", do that.
+  3. TabMaker opens in your browser.
+
+EVERY TIME AFTER THAT
+  Double-click "Start TabMaker" in this folder.
+
+MAKING A TAB
+  Paste a song link and click "Make tab". Or upload a song file.
+  Space = play / pause. Click anywhere in the tab to jump there.
+  The fretboard under the player shows where your fingers go, live.
+
+STOPPING
+  Close the black "TabMaker" window.
+
+GIVING IT TO A FRIEND
+  Send them this link: https://github.com/ekremturanfirat/tabmaker
+  (green "Code" button -> "Download ZIP"). Or double-click "Make a copy for a friend":
+  it makes a clean TabMaker.zip on your Desktop (without your downloaded songs).
+
+--------------------------------------------------------------------
+
+TabMaker - sarkilari gitar tab'ina cevirir
+==========================================
+
+BIR BILGISAYARDA ILK KEZ (Windows)
+  1. TabMaker klasorunu istedigin yere koy (ornegin Belgeler).
+  2. "Start TabMaker" dosyasina cift tikla.
+     Windows "Windows bilgisayarinizi korudu" derse "Ek bilgi" -> "Yine de calistir"a tikla (bir kez).
+     Ilk seferde Python ve Deno kurulabilir. Windows sorarsa "Evet"e tikla.
+     Siyah pencere "double-click Start TabMaker again" derse, tekrar cift tikla.
+  3. TabMaker tarayicida acilir.
+
+SONRAKI HER SEFER
+  Bu klasordeki "Start TabMaker"a cift tikla.
+
+TAB YAPMAK
+  Sarki linkini yapistir, "Make tab"e bas. Ya da sarki dosyasi yukle.
+  Bosluk tusu = oynat / durdur. Tab'da bir yere tiklarsan sarki oraya gider.
+  Oynaticinin altindaki klavye (fretboard) parmaklarin nereye gidecegini canli gosterir.
+
+KAPATMAK
+  Siyah "TabMaker" penceresini kapat.
+
+ARKADASINA VERMEK
+  Su linki gonder: https://github.com/ekremturanfirat/tabmaker
+  (yesil "Code" butonu -> "Download ZIP"). Ya da "Make a copy for a friend"e cift tikla:
+  Masaustune temiz bir TabMaker.zip yapar (indirdigin sarkilar olmadan).
