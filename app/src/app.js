@@ -531,8 +531,15 @@ function highlight(time) {
   if (el.follow.checked && !userScrolling && state.lastHi.length && !el.audio.paused) {
     const sys = state.lastHi[0].closest('.system');
     const r = sys.getBoundingClientRect();
-    const top = el.audio.closest('.player').getBoundingClientRect().bottom + 10;
-    if (r.top < top || r.bottom > innerHeight - 20) sys.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // the player (with the hand view and the video) sticks to the top and can cover half the window:
+    // bring the line into the middle of the room under it, not the middle of the window
+    const player = el.audio.closest('.player');
+    const top = (getComputedStyle(player).position === 'sticky' ? Math.max(0, player.getBoundingClientRect().bottom) : 0) + 10;
+    const bottom = innerHeight - 20;
+    if (r.top < top || r.bottom > bottom) {
+      const y = r.top - top - Math.max(0, (bottom - top - r.height) / 2);
+      scrollTo({ top: scrollY + y, behavior: 'smooth' });
+    }
   }
 }
 
