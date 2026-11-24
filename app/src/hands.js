@@ -288,26 +288,27 @@ export function createHandView(root) {
   let labels = ['E', 'A', 'D', 'G', 'B', 'e'];
   let lastKey = null;
   let hand = 1;
+  let capo = 0; // frets count from the capo, as in the tab
   let thumbS = 1;
   const pluckAt = {};
   let raf = 0;
   let last = 0;
 
   function targets() {
-    const handX = (fretMid(hand) + fretMid(hand + 3)) / 2 - 3;
+    const handX = (fretMid(hand + capo) + fretMid(hand + capo + 3)) / 2 - 3;
     const g = { camX: Math.max(105, handX + 12), handX, tips: [null], flat: [null], thumbR: thumbS };
     for (let k = 1; k <= 4; k++) {
       const strings = info.fingers.map((f, s) => (f === k && info.held[s] > 0 ? s : -1)).filter((s) => s >= 0);
       const nx = info.next?.fingers?.findIndex((f, s) => f === k && info.next.frets[s] > 0) ?? -1;
       if (strings.length) {
         const s = Math.min(...strings);
-        g.tips[k] = [pressX(info.held[s]), strY(s) - (strings.length > 1 ? 1.5 : 0), 2];
+        g.tips[k] = [pressX(info.held[s] + capo), strY(s) - (strings.length > 1 ? 1.5 : 0), 2];
         g.flat[k] = strings.length > 1 ? 1 : 0;
       } else if (nx >= 0) {
-        g.tips[k] = [pressX(info.next.frets[nx]) - 1, strY(nx) + 1.5, 9]; // ready above the next note
+        g.tips[k] = [pressX(info.next.frets[nx] + capo) - 1, strY(nx) + 1.5, 9]; // ready above the next note
         g.flat[k] = 0;
       } else {
-        g.tips[k] = [fretMid(hand + k - 1), strY(4.3), 12]; // free: hovering close above the strings
+        g.tips[k] = [fretMid(hand + capo + k - 1), strY(4.3), 12]; // free: hovering close above the strings
         g.flat[k] = 0;
       }
     }
@@ -408,9 +409,9 @@ export function createHandView(root) {
       if (x < xa || x > xb) continue;
       if (f % 12 === 0) out += disc(P, [x, strY(1.5), 0], 3.2, 'hv-inlay') + disc(P, [x, strY(3.5), 0], 3.2, 'hv-inlay');
       else if ([3, 5, 7, 9].includes(f % 12)) out += disc(P, [x, 0, 0], 3.4, 'hv-inlay');
-      if ([1, 3, 5, 7, 9, 12, 15, 17, 19, 21, 24].includes(f) || f === hand) {
+      if ([1, 3, 5, 7, 9, 12, 15, 17, 19, 21, 24].includes(f) || f === hand + capo) {
         const q = P([x, -EDGE, -NECK_T / 2 - 4]);
-        out += `<text class="hv-num${f === hand ? ' on' : ''}" x="${q[0].toFixed(1)}" y="${q[1].toFixed(1)}">${f}</text>`;
+        out += `<text class="hv-num${f === hand + capo ? ' on' : ''}" x="${q[0].toFixed(1)}" y="${q[1].toFixed(1)}">${f}</text>`;
       }
     }
     for (let f = 1; f <= 24; f++) {
@@ -421,6 +422,11 @@ export function createHandView(root) {
         line(P, [x, -EDGE, 0.8], [x, -EDGE, -2.5], 'hv-fret-side', 1.4 * w);
     }
     if (xa < 0) out += line(P, [0, -EDGE - 1, 1.6], [0, EDGE + 1, 1.6], 'hv-nut', 3.4 * P.k([0, 0, 0])) + line(P, [-0.8, -EDGE - 1, 2.2], [-0.8, EDGE + 1, 2.2], 'hv-nut-hi', 0.9 * P.k([0, 0, 0]));
+    const capoX = fretPos(capo) - 5; // the capo clamps the strings just behind its fret
+    if (capo && capoX > xa) {
+      out += line(P, [capoX, -EDGE - 3, 3.5], [capoX, EDGE + 3, 3.5], 'hv-capo', 7 * P.k([capoX, 0, 0])) +
+        line(P, [capoX - 1.5, -EDGE - 3, 5], [capoX - 1.5, EDGE + 3, 5], 'hv-capo-hi', 1.4 * P.k([capoX, 0, 0]));
+    }
 
     // the fingers (drawn further down), so their shadows can go under the strings first
     const fingers = [];
@@ -439,11 +445,11 @@ export function createHandView(root) {
       out += string(P, [Math.max(-58, xa), strY(s), 1.6], [xb, strY(s), 1.6], s, sounding(s));
       const q = P([0, strY(s), 1.6]);
       out += `<text class="hv-lbl" x="12" y="${(q[1] + 4).toFixed(1)}">${labels[s]}</text>`;
-      if (info.held[s] === 0 && sounding(s) && xa < 0) out += disc(P, [-7, strY(s), 1.6], 3.4, 'hv-open');
+      if (info.held[s] === 0 && sounding(s) && (capo ? capoX - 6 : -7) > xa) out += disc(P, [capo ? capoX - 6 : -7, strY(s), 1.6], 3.4, 'hv-open');
     }
     // the next notes: dashed rings where the fingers go next
     info.next?.frets.forEach((f, s) => {
-      if (f > 0) out += disc(P, [pressX(f), strY(s), 1.6], 3.6, 'hv-next', 20);
+      if (f > 0) out += disc(P, [pressX(f + capo), strY(s), 1.6], 3.6, 'hv-next', 20);
     });
 
     // what the neck hides, seen through it
@@ -537,11 +543,12 @@ export function createHandView(root) {
      * Show a moment of the music.
      * active: something is being played · hand: index-finger fret · held/fingers: the chord shape the
      * left hand holds (fret / finger per string) · sounding: strings that sound now · plucks: [{s, f: 'p'|'i'|'m'|'a'}]
-     * · next: {frets, fingers} coming up · key: changes on every new pluck · caption: tip for this passage (HTML)
+     * · next: {frets, fingers} coming up · capo: its fret (frets count from it) · key: changes on every new pluck · caption: tip for this passage (HTML)
      */
     show(next) {
       info = { ...info, ...next };
       if (info.hand != null) hand = info.hand;
+      capo = info.capo || 0;
       const bass = info.plucks.filter((p) => p.f === 'p').map((p) => p.s);
       const nextBass = info.next?.frets.findIndex((f, s) => s < 3 && f >= 0) ?? -1;
       if (bass.length) thumbS = Math.min(...bass);

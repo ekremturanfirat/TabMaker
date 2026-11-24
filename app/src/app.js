@@ -456,7 +456,7 @@ function highlight(time) {
 // Left hand: a hand that slides along the neck, fingers 1-4 pressing their strings (index on the
 // hand position's fret). Right hand: p i m a on the strings being plucked, by the sound hole.
 
-const fb = { n: 15, key: null, layer: null, hand: null };
+const fb = { n: 15, key: null, layer: null, hand: null, capo: 0 };
 const FB_W = 1000; // end of the neck; the right-hand zone is drawn after it
 const FB_PICK = 140;
 const FB_NUT = 70;
@@ -467,13 +467,16 @@ const PALM_B = 40; // bottom edge of the palm, where the fingers start
 const fretW = () => (FB_W - FB_NUT - 12) / fb.n;
 const fretX = (f) => FB_NUT + f * fretW();
 const dotX = (f) => (f === 0 ? FB_NUT - 18 : (fretX(f - 1) + fretX(f)) / 2);
+// a tab fret counts from the capo: an open string sounds at the capo, fret 2 is the capo's fret + 2
+const tabX = (f) => (f === 0 && fb.capo ? fretX(fb.capo) - 9 : dotX(f && f + fb.capo));
 const stringY = (s) => FB_TOP + (5 - s) * FB_GAP; // high e on top, like the tab
 const REST_Y = FB_TOP - 12; // a finger that presses nothing hovers above the high e
 const PIMA = ['p', 'p', 'p', 'i', 'm', 'a']; // classical rule: thumb on the 3 bass strings, i m a on G B e
 
 function drawFretboard() {
-  const { tuning, q } = state.tab;
-  const highest = Math.max(0, ...q.columns.flatMap((c) => c.frets), ...q.columns.map((c) => (c.hand ?? 1) + 3));
+  const { tuning, q, capo } = state.tab;
+  fb.capo = capo;
+  const highest = capo + Math.max(0, ...q.columns.flatMap((c) => c.frets), ...q.columns.map((c) => (c.hand ?? 1) + 3));
   fb.n = Math.min(24, Math.max(12, highest + 1));
   const bottom = stringY(0);
   const fw = fretW();
@@ -491,6 +494,10 @@ function drawFretboard() {
   }
   for (let f = 1; f <= fb.n; f++) svg += `<line class="fb-fret" x1="${fretX(f)}" x2="${fretX(f)}" y1="${FB_TOP}" y2="${bottom}"/>`;
   svg += `<line class="fb-nut" x1="${FB_NUT}" x2="${FB_NUT}" y1="${FB_TOP - 2}" y2="${bottom + 2}"/>`;
+  if (capo) {
+    svg += `<rect class="fb-capo" x="${fretX(capo) - 15}" y="${FB_TOP - 9}" width="12" height="${bottom - FB_TOP + 18}" rx="5"/>` +
+      `<text class="fb-num" x="${fretX(capo) - 9}" y="${FB_TOP - 14}">capo ${capo}</text>`;
+  }
   for (let s = 0; s < 6; s++) {
     svg += `<line class="fb-string" x1="${FB_NUT - 30}" x2="${FB_W + FB_PICK - 6}" y1="${stringY(s)}" y2="${stringY(s)}" style="stroke-width:${0.8 + (5 - s) * 0.25}"/>`;
     svg += `<text class="fb-label" x="12" y="${stringY(s) + 4}">${tuning.labels[s]}</text>`;
@@ -501,7 +508,7 @@ function drawFretboard() {
   svg += `<text class="fb-zone" x="${FB_W + 78}" y="${FB_TOP - 30}">right hand</text>`;
   svg += `<g class="fb-live"></g>`;
   // the left hand, drawn at fret 1 and moved with a transform so it glides between positions
-  svg += `<g class="fb-handg" style="transform: translateX(${dotX(1)}px)">`;
+  svg += `<g class="fb-handg" style="transform: translateX(${tabX(1)}px)">`;
   svg += `<rect class="fb-palm" x="${-fw * 0.62}" y="${PALM_Y}" width="${fw * 4.24}" height="${PALM_B - PALM_Y}" rx="14"/>`;
   svg += `<ellipse class="fb-thumb" cx="${fw * 0.6}" cy="${bottom + 9}" rx="${fw * 0.55}" ry="6"/>`;
   for (let k = 1; k <= 4; k++) {
@@ -538,7 +545,7 @@ function columnAt(idx) {
 function poseHand(col) {
   const hand = col?.hand ?? null;
   fb.hand.classList.toggle('idle', !col);
-  if (hand != null) fb.hand.style.transform = `translateX(${dotX(hand)}px)`;
+  if (hand != null) fb.hand.style.transform = `translateX(${tabX(hand)}px)`;
   for (let k = 1; k <= 4; k++) {
     // strings this finger presses (several = a barre, or a flattened finger)
     const strings = col ? col.frets.map((_, s) => s).filter((s) => col.fingers?.[s] === k) : [];
@@ -570,13 +577,13 @@ function updateFretboard(idx) {
   let g = '';
   if (next) {
     next.frets.forEach((f, s) => {
-      if (f >= 0) g += `<circle class="fb-next" cx="${dotX(f)}" cy="${stringY(s)}" r="8"/>`;
+      if (f >= 0) g += `<circle class="fb-next" cx="${tabX(f)}" cy="${stringY(s)}" r="8"/>`;
     });
   }
   if (cur) {
     cur.frets.forEach((f, s) => {
       if (f < 0) return;
-      if (f === 0) g += `<circle class="fb-open" cx="${dotX(0)}" cy="${stringY(s)}" r="7"/>`;
+      if (f === 0) g += `<circle class="fb-open" cx="${tabX(0)}" cy="${stringY(s)}" r="7"/>`;
       // right hand: which finger plucks this string
       const p = PIMA[s];
       g += `<circle class="fb-pima ${p}" cx="${FB_W + 78}" cy="${stringY(s)}" r="8.5"/><text class="fb-pima-t" x="${FB_W + 78}" y="${stringY(s) + 4}">${p}</text>`;
@@ -654,6 +661,7 @@ function updateHands(idx) {
   hv.view.show({
     active: !!cur,
     hand: cur?.hand ?? nextCol?.hand ?? null,
+    capo: state.tab.capo,
     held: held.frets,
     fingers: held.fingers,
     sounding: cur ? cur.frets.map((f) => f >= 0) : [],
@@ -740,6 +748,15 @@ function startAlong() {
 function scheduleTab(ctx, dest, from, t0, to = Infinity) {
   const { q, tuning, capo } = state.tab;
   let lastEnd = 0;
+  // a string sounds one note at a time: the next note played on it stops the one before
+  const nextOn = q.columns.map(() => []);
+  const seen = [];
+  for (let k = q.columns.length - 1; k >= 0; k--) {
+    q.columns[k].frets.forEach((f, s) => {
+      nextOn[k][s] = seen[s];
+      if (f >= 0) seen[s] = q.columns[k];
+    });
+  }
   q.columns.forEach((col, k) => {
     const at = q.timeOf(col.idx) - from;
     if (at < 0 || from + at > to) return;
@@ -752,10 +769,20 @@ function scheduleTab(ctx, dest, from, t0, to = Infinity) {
       const g = ctx.createGain();
       osc.type = 'triangle';
       osc.frequency.value = midiToHz(tuning.notes[s] + capo + f);
+      const peak = tech.linked ? 0.3 : 0.6; // hammer-ons/slides aren't picked
+      const nxt = nextOn[k][s];
+      const stop = nxt && !(tech.link && nxt === q.columns[k + 1]) ? t0 + q.timeOf(nxt.idx) - from : Infinity;
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(tech.linked ? 0.3 : 0.6, t + 0.005); // hammer-ons/slides aren't picked
-      g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+      g.gain.linearRampToValueAtTime(peak, t + 0.005);
       let end = t + 1.25;
+      if (stop < t + 1.2 && stop > t + 0.02) {
+        // die away as usual until the string is played again, then stop quickly (no click)
+        g.gain.exponentialRampToValueAtTime(peak * (0.001 / peak) ** ((stop - t - 0.005) / 1.195), stop);
+        g.gain.linearRampToValueAtTime(0, stop + 0.015);
+        end = stop + 0.02;
+      } else {
+        g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+      }
       if (tech.bend) {
         const up = t + tech.bend.at;
         osc.detune.setValueAtTime(0, up);
@@ -822,12 +849,23 @@ function heardNotes({ frames, onsets }, offset, low, high) {
  *    overtone and a played octave sound alike to the model (and the tab synth has no octave overtone)
  *  - (with the song's audio) a start the model hears in a note that was already ringing and doesn't
  *    get louder: maybe re-plucked, maybe not
+ *  - (with the tab's own notes, `plucks`) a start the model hears in a tab note still ringing, where the
+ *    tab plucks nothing: the same mishearing, known for sure on this side
  */
-function doubtful(notes, samples, start) {
+function doubtful(notes, samples, start, plucks) {
+  const near = (n, list, a, b) => list.some((m) => m.pitch === n.pitch && n.time - m.time > a && n.time - m.time <= b);
   return new Set(notes.filter((n) =>
     notes.some((m) => [12, 19, 24].includes(n.pitch - m.pitch) && Math.abs(m.time - n.time) <= MATCH.tol && m.amp > n.amp) ||
-    (samples && notes.some((m) => m.pitch === n.pitch && m.time < n.time - MATCH.tol && n.time - m.time <= MATCH.ring) &&
-      pitchJump(samples, n.time - start, n.pitch) < MATCH.rejump)));
+    (samples && near(n, notes, MATCH.tol, MATCH.ring) && pitchJump(samples, n.time - start, n.pitch) < MATCH.rejump) ||
+    (plucks && near(n, plucks, MATCH.tol, MATCH.ring) && !near(n, plucks, -MATCH.tol, MATCH.tol))));
+}
+
+/** The notes the tab plays: pitch and start, as scheduleTab plays them (chords rolled up 10 ms a string). */
+function tabPlucks({ q, tuning, capo }) {
+  return q.columns.flatMap((c) => {
+    let k = 0;
+    return c.frets.flatMap((f, s) => (f < 0 ? [] : [{ pitch: tuning.notes[s] + capo + f, time: q.timeOf(c.idx) + (c.tech?.[s]?.linked ? 0 : 0.01 * k++) }]));
+  });
 }
 
 /** Notes of `a` with a partner in `b` (same pitch, onsets within tol); each partner used once. */
@@ -874,7 +912,7 @@ async function compare() {
     const heardSong = heardNotes(state.output, start, low, high);
     const heardTab = heardNotes(heard, start, low, high);
     const songOff = doubtful(heardSong, samples, start);
-    const tabOff = doubtful(heardTab, null, start);
+    const tabOff = doubtful(heardTab, null, start, tabPlucks(tab));
     const clear = (a, aOff, b, bOff) => {
       const keep = a.filter((n) => !aOff.has(n));
       const fit = matched(keep, b.filter((n) => !bOff.has(n))).hits;
@@ -912,7 +950,7 @@ async function compare() {
     for (const b of bars) b.score = b.song + b.tab ? (2 * b.hit) / (b.song + b.tab) : null;
     const score = song.length + mine.length ? (found.size + right.size) / (song.length + mine.length) : 0;
     const late = bars.reduce((a, b) => a + b.late.length, 0);
-    state.compare = { tab, score, bars, late, recall: found.size / (song.length || 1), precision: right.size / (mine.length || 1) };
+    state.compare = { tab, score, bars, late, song, mine, heardTab, recall: found.size / (song.length || 1), precision: right.size / (mine.length || 1) };
     showCompare();
     return {
       score: +score.toFixed(3),

@@ -24,7 +24,8 @@ python server.py     # local page at http://localhost:8000
 
 ## How it works
 
-1. **Download** – `server.py` uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to fetch the audio of a link (cached in `cache/`).
+1. **Download** – `server.py` uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to fetch the audio of a link (cached in `cache/`,
+   by the song's own link: a YouTube video opened from a mix or playlist (`&list=…&start_radio=1`) or shared with `?si=` is fetched once).
 2. **Listen** – in the browser, Spotify's [Basic Pitch](https://github.com/spotify/basic-pitch-ts) model finds the notes.
 3. **Clean** – overtones, re-detected ringing notes and faint notes (open strings ringing along) are removed
    (`removeGhostNotes` in `src/tab.js`); a note with its own clear onset is kept even if it looks like an overtone,
@@ -61,7 +62,10 @@ number green / yellow / red, and lists per bar the song notes the tab misses, th
 have, and right notes at the wrong time. "tab along" plays the tab quietly on top of the song.
 Two kinds of notes count neither way, because the model can't tell them apart (`doubtful`): a quieter
 octave / 12th starting with another note (overtone or played octave?), and a ringing note heard starting
-again without getting louder (re-plucked or not?). Counting them made the score favour wrong tabs.
+again without getting louder (re-plucked or not?). Counting them made the score favour wrong tabs. On the tab's
+side the model mishears its own ringing notes the same way; there the tab says for sure that nothing was plucked,
+so those don't count either. As on a guitar, the synth lets a string sound one note at a time: the next note
+on the same string stops the one before.
 From the dev console: `await tabmaker.compare()` returns the same numbers. Use it before and after every
 change to the tab engine; `tools/bench.js` runs it over several songs (see its header).
 
@@ -73,7 +77,8 @@ a barre, the thumb and palm behind the neck dashed), the right hand from the fro
 the finger that plucks follows through towards the palm). The left hand holds the whole chord shape
 of an arpeggio, not only the note sounding (`heldShape` in `src/app.js`: neighbouring notes played in
 the same position without moving a finger), and a line under it says how to hold the hands for the
-passage (arpeggio, barre, chord, single notes). "hands" switches to the flat fretboard: the left hand
+passage (arpeggio, barre, chord, single notes). With a capo, both views draw it and put the fingers where they
+really go: tab frets count from the capo, so fret 2 with capo 3 is pressed at the 5th fret. "hands" switches to the flat fretboard: the left hand
 gliding to each position with numbered fingers and the right hand's p i m a on the plucked strings.
 On screen, techniques are drawn as tab symbols (slur arcs, slide lines, bend arrows, vibrato waves);
 the .txt export writes them as h p / \ b r ~.

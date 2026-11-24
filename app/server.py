@@ -37,15 +37,40 @@ mimetypes.add_type("audio/webm", ".webm")
 mimetypes.add_type("audio/ogg", ".opus")
 
 
-def fetch_audio(url):
-    """Download the best audio-only stream of a video link, cached by URL."""
-    key = hashlib.sha1(url.encode()).hexdigest()[:16]
-    folder = CACHE / key
+YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"}
+SHARE_PARAMS = {"si", "feature"}  # added when a link is shared; the same song without them
+
+
+def song_url(url):
+    """The link of the song itself: a YouTube video opened from a mix or a playlist
+    (&list=...&start_radio=1), shared (?si=) or at a time (&t=) is the same song, so it is fetched once."""
+    parts = urllib.parse.urlsplit(url)
+    host = parts.netloc.lower()
+    query = urllib.parse.parse_qs(parts.query)
+    if host in YOUTUBE_HOSTS and parts.path == "/watch" and query.get("v"):
+        return f"https://www.youtube.com/watch?v={query['v'][0]}"
+    if host in {"youtu.be", "www.youtu.be"} and parts.path.strip("/"):
+        return f"https://www.youtube.com/watch?v={parts.path.strip('/').split('/')[0]}"
+    kept = [(k, v) for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True) if k not in SHARE_PARAMS]
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, urllib.parse.urlencode(kept), ""))
+
+
+def cached(folder):
     meta_file = folder / "meta.json"
     if meta_file.exists():
         meta = json.loads(meta_file.read_text(encoding="utf-8"))
         if (folder / meta["file"]).exists():
             return folder / meta["file"], meta
+    return None
+
+
+def fetch_audio(url):
+    """Download the best audio-only stream of a video link, cached by the song's link."""
+    url = song_url(url)
+    folder = CACHE / hashlib.sha1(url.encode()).hexdigest()[:16]
+    hit = cached(folder)
+    if hit:
+        return hit
 
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True)
@@ -70,7 +95,7 @@ def fetch_audio(url):
         "duration": info.get("duration"),
         "uploader": info.get("uploader"),
     }
-    meta_file.write_text(json.dumps(meta), encoding="utf-8")
+    (folder / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
     return files[0], meta
 
 
