@@ -1,4 +1,6 @@
 import { BasicPitch, outputToNotesPoly, addPitchBendsToNoteEvents, noteFramesToTime } from '@spotify/basic-pitch';
+import * as tf from '@tensorflow/tfjs'; // the copy Basic Pitch runs on: only to switch it off WebGL when that fails
+import { setWasmPaths } from '@tensorflow/tfjs-backend-wasm'; // registers the 'wasm' backend
 import {
   TUNINGS, midiToHz, noteName, playableRange, groupEvents, assignFrets, estimateTempo,
   quantize, toMeasures, renderText, cellString, removeGhostNotes, findTechniques, techniqueMarks, TECH_LEGEND, trackBeats, findBars, splitBeats,
@@ -159,8 +161,39 @@ async function listen() {
   el.result.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/** Run the note-detection model on 22.05 kHz mono audio. onProgress(fraction, " · about N s left"). */
+/**
+ * Run the note-detection model on 22.05 kHz mono audio. onProgress(fraction, " · about N s left").
+ * The model runs on the graphics card (WebGL). Some drivers can't compile its shaders
+ * ("Failed to compile fragment shader"): then it runs again on the processor with
+ * WebAssembly (the plain-JavaScript 'cpu' backend is the last resort: it freezes the page for minutes).
+ */
+setWasmPaths(new URL('tfjs-wasm/', import.meta.url).href);
+// tf.signal.frame (Basic Pitch's audio windows) calls fill() without a dtype; webgl and cpu
+// take float32 then, the wasm backend (3.21) throws "Unknown dtype undefined". Default it the same way.
+{
+  const fill = tf.getKernel('Fill', 'wasm');
+  if (fill) {
+    tf.unregisterKernel('Fill', 'wasm');
+    tf.registerKernel({ ...fill, kernelFunc: (args) => fill.kernelFunc({ ...args,
+      attrs: { ...args.attrs, dtype: args.attrs.dtype ?? (typeof args.attrs.value === 'string' ? 'string' : 'float32') } }) });
+  }
+}
 async function runModel(buffer, onProgress) {
+  try {
+    return await runModelOn(buffer, onProgress, '');
+  } catch (err) {
+    const msg = err?.message || String(err);
+    if (tf.getBackend() !== 'webgl' || !/shader|webgl|texture|context/i.test(msg)) throw err;
+    console.warn('WebGL failed, running the model on the processor instead:', err);
+    const ok = await tf.setBackend('wasm').catch(() => false);
+    if (!ok) await tf.setBackend('cpu');
+    model = null; // its weights were loaded onto the GPU: load them again on the new backend
+    return runModelOn(buffer, onProgress, ' · on the processor (your graphics card could not run it), so it is slower');
+  }
+}
+
+async function runModelOn(buffer, onProgress, note) {
+  onProgress(0, note);
   const bp = getModel();
   await bp.model;
   const frames = [];
@@ -172,7 +205,7 @@ async function runModel(buffer, onProgress) {
     (f, o, c) => { frames.push(...f); onsets.push(...o); contours.push(...c); },
     (p) => {
       const secs = (performance.now() - t0) / 1000;
-      onProgress(p, p > 0.05 ? ` · about ${Math.ceil((secs / p) * (1 - p))} s left` : '');
+      onProgress(p, (p > 0.05 ? ` · about ${Math.ceil((secs / p) * (1 - p))} s left` : '') + note);
     },
   );
   return { frames, onsets, contours };

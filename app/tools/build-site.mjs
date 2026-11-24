@@ -27,6 +27,11 @@ for (const f of ['vision_wasm_internal.js', 'vision_wasm_internal.wasm']) {
   copyFileSync(`node_modules/@mediapipe/tasks-vision/wasm/${f}`, join(out, 'mediapipe', 'wasm', f));
 }
 for (const f of ['hand_landmarker.task', 'LICENSE']) copyFileSync(join('public', 'mediapipe', f), join(out, 'mediapipe', f));
+// the note model's processor backend, used when the graphics card can't run it (app.js runModel)
+mkdirSync(join(out, 'tfjs-wasm'), { recursive: true });
+for (const f of ['tfjs-backend-wasm.wasm', 'tfjs-backend-wasm-simd.wasm', 'tfjs-backend-wasm-threaded-simd.wasm']) {
+  copyFileSync(`node_modules/@tensorflow/tfjs-backend-wasm/dist/${f}`, join(out, 'tfjs-wasm', f));
+}
 
 // Same page, plus the site's analytics tag, header and footer (as on ekremturanfirat.com).
 // index.html is the public upload-only page.
