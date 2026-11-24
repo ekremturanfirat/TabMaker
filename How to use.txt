@@ -22,8 +22,7 @@ STOPPING
 
 GIVING IT TO A FRIEND
   Send them this link: https://github.com/ekremturanfirat/TabMaker
-  (green "Code" button -> "Download ZIP"). Or double-click "Make a copy for a friend":
-  it makes a clean TabMaker.zip on your Desktop (without your downloaded songs).
+  (green "Code" button -> "Download ZIP").
 
 --------------------------------------------------------------------
 
@@ -51,5 +50,4 @@ KAPATMAK
 
 ARKADASINA VERMEK
   Su linki gonder: https://github.com/ekremturanfirat/TabMaker
-  (yesil "Code" butonu -> "Download ZIP"). Ya da "Make a copy for a friend"e cift tikla:
-  Masaustune temiz bir TabMaker.zip yapar (indirdigin sarkilar olmadan).
+  (yesil "Code" butonu -> "Download ZIP").
