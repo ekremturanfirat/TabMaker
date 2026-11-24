@@ -373,7 +373,106 @@ function shapeCost(f) {
 
 // The fretting hand: the index finger sits at fret `hand`, fingers 1-4 cover hand..hand+3
 // (the pinky can stretch one more). Open strings need no finger and leave the hand free to move.
-const HAND = { posK: 0.05, pinky: 0.15, stretch: 2, shiftBase: 1, shiftPerFret: 0.5, speedOk: 12, sameFretK: 0.6 };
+export const HAND = {
+  posK: 0.05, pinky: 0.15, stretch: 2, shiftBase: 1, shiftPerFret: 0.5, speedOk: 12, sameFretK: 0.6,
+  videoK: 5, videoSlack: 1, tipK: 1.5, tipFret: 0.9, tipString: 0.9,
+};
+
+// the strings across the board: about 43 mm from low E to high e at the nut, 57 at the 12th fret
+const stringGap = (D) => (43 + 28 * D) / 5;
+/** Which string a fingertip seen in the video is over (fractional, 0 = low E), for one camera side. */
+const tipString = (tip, side) => 2.5 + (side * tip.v) / stringGap(tip.D);
+
+/**
+ * Cost of a fingering f held at h when the video shows the hand at hint.h (w: how sure it is).
+ * The fingertip seen in the picture can be a fret off, so a fret either way is free; further is
+ * expensive. With `side` known (see stringSide), every fretted note with no fingertip seen near its
+ * string and fret costs too.
+ */
+function videoCost(f, h, hint, side) {
+  if (!hint) return 0;
+  let c = hint.w * HAND.videoK * Math.max(0, Math.abs(h - hint.h) - HAND.videoSlack);
+  if (side && hint.tips.length >= 2) {
+    f.forEach((fr, s) => {
+      if (fr <= 0) return;
+      // a pressing fingertip sits just behind its fret wire: fret fr - 0.3 or so
+      const seen = hint.tips.some((t) => Math.abs(t.f - (fr - 0.3)) <= HAND.tipFret && Math.abs(tipString(t, side) - s) <= HAND.tipString);
+      if (!seen) c += hint.w * HAND.tipK;
+    });
+  }
+  return c;
+}
+
+/**
+ * Which way the strings run across the picture: +1 or -1, or 0 if the video can't tell. The side
+ * whose fingertips land on string/fret spots that play the notes heard (more often) is the right one.
+ */
+export function stringSide(events, tuning, capo, handAt) {
+  if (!handAt) return 0;
+  const score = { 1: 0, '-1': 0 };
+  for (const ev of events) {
+    const hint = handAt(ev.time);
+    if (!hint || hint.tips.length < 2) continue;
+    const pitches = new Set(ev.notes.map((n) => n.pitch));
+    for (const side of [1, -1]) {
+      for (const t of hint.tips) {
+        const s = Math.round(tipString(t, side));
+        if (s < 0 || s > 5) continue;
+        const fr = Math.max(1, Math.round(t.f + 0.3));
+        if (pitches.has(tuning.notes[s] + capo + fr)) score[side]++;
+      }
+    }
+  }
+  const total = score[1] + score[-1];
+  if (total < 8 || Math.abs(score[1] - score[-1]) < 0.2 * total) return 0;
+  return score[1] > score[-1] ? 1 : -1;
+}
+
+/**
+ * Notes the hand can't reach where the video shows it (not open, not within its frets) are most
+ * often heard an octave off (an overtone, or a low note heard high): move such a note an octave if
+ * that lands under the hand, or drop it if that octave is already played. why (optional Map) gets
+ * the reason for each changed note.
+ */
+export function fitNotesToHand(events, tuning, capo, maxFret, handAt, why = null) {
+  if (!handAt) return events;
+  return events.map((ev) => {
+    const hint = handAt(ev.time);
+    if (!hint || hint.w < 0.6) return ev;
+    // Within reach: a fret either side of the four fingers. Checked against Nothing Else Matters'
+    // on-screen tab, the notes this moves or drops are all overtones (B4 over open strings, D5 over
+    // a 7th-position D chord), even where the fingers hover near the nut; a wider reach or skipping
+    // hovering hands kept them. "Compare with the song" scores this a little lower, because the
+    // song's own recording is heard with the same overtones.
+    const lo = Math.max(1, hint.h - HAND.videoSlack);
+    const hi = Math.min(maxFret, hint.h + 3 + HAND.videoSlack);
+    const reach = (p) => tuning.notes.some((open) => {
+      const fr = p - open - capo;
+      return fr === 0 || (fr >= lo && fr <= hi);
+    });
+    const pitches = new Set(ev.notes.map((n) => n.pitch));
+    let changed = false;
+    const notes = [];
+    for (const n of ev.notes) {
+      if (reach(n.pitch)) {
+        notes.push(n);
+        continue;
+      }
+      const to = [n.pitch - 12, n.pitch + 12].find(reach);
+      if (to == null) {
+        notes.push(n);
+        continue;
+      }
+      changed = true;
+      why?.set(n, to < n.pitch ? 'video: an octave lower under the hand' : 'video: an octave higher under the hand');
+      if (!pitches.has(to)) {
+        notes.push({ ...n, pitch: to, videoOctave: to - n.pitch });
+        pitches.add(to);
+      }
+    }
+    return changed && notes.length ? { ...ev, notes } : ev;
+  });
+}
 
 /** Hand positions (index-finger fret) that can play fingering f, with the cost of holding it there. */
 function handOptions(f, maxFret) {
@@ -420,15 +519,20 @@ export function handFingers(frets, h) {
  * fingering x hand position) so the whole passage is comfortable to play: the hand stays in place
  * where it can and never has to jump far in a short time. Returns events with .frets, .hand
  * (index-finger fret) and .fingers (see handFingers) added.
+ * handAt(time) (optional, from the player's video): {h, w}, where the player's hand was (h counted
+ * from the capo) and how sure that is (0-1); the tab then keeps the hand there where it can.
  */
-export function assignFrets(events, tuning, capo, maxFret) {
+export function assignFrets(events, tuning, capo, maxFret, handAt = null) {
+  const side = stringSide(events, tuning, capo, handAt);
   const states = events.map((ev) => {
     const bent = ev.bend || ev.vibrato; // can't bend or shake an open string
+    const hint = handAt?.(ev.time);
     const fs = eventFingerings(ev, tuning, capo, maxFret)
       .map((f) => ({ f, c: shapeCost(f) + (bent && f.includes(0) ? 5 : 0) }))
       .sort((a, b) => a.c - b.c)
-      .slice(0, 40);
-    return fs.flatMap(({ f, c }) => handOptions(f, maxFret).map((o) => ({ f, h: o.h, c: c + o.c, str: f.findIndex((x) => x >= 0) })));
+      .slice(0, hint ? 80 : 40); // the player's own shape may not be among the easiest few
+    return fs.flatMap(({ f, c }) =>
+      handOptions(f, maxFret).map((o) => ({ f, h: o.h, c: c + o.c + videoCost(f, o.h, hint, side), str: f.findIndex((x) => x >= 0) })));
   });
 
   let prev = null;

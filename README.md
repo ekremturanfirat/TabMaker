@@ -2,6 +2,10 @@
 
 Paste a song link, or upload an audio/video file, and get guitar tab.
 
+If the song is a video of someone playing, TabMaker can also watch the player's fretting hand: mark the
+neck once (click both ends of the nut and of the 12th fret wire), press **Follow the hand**, and the tab
+puts the notes on the strings and frets where the player had them, not just the easiest ones.
+
 **Try it in the browser (upload a file):** https://ekremturanfirat.com/TabMaker/
 
 ## Install the app (Windows)
@@ -26,6 +30,8 @@ Copyright © 2026 Ekrem Turan Fırat. TabMaker is free software under the
 share it, and changed versions you share must stay under the same licence with their source code.
 
 The note model in `app/public/model/` is Spotify's [Basic Pitch](https://github.com/spotify/basic-pitch-ts),
-under its own [Apache 2.0 licence](app/public/model/LICENSE).
+under its own [Apache 2.0 licence](app/public/model/LICENSE). The hand model in `app/public/mediapipe/` is
+Google's [MediaPipe](https://github.com/google-ai-edge/mediapipe) Hand Landmarker, also under the
+[Apache 2.0 licence](app/public/mediapipe/LICENSE).
 
 Made by [Ekrem Turan Fırat](https://ekremturanfirat.com/).
