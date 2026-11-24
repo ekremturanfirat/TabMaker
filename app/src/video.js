@@ -15,6 +15,7 @@ const NEAR = 0.35; // s: hand frames this close to a note count for it
 const CUT = 26; // mean grey-level change (0-255) of a 32x18 thumbnail that means a new shot
 const SAME_SHOT = 18; // ...and the most a shot may differ from a marked one to reuse its marks
 const TIPS = [8, 12, 16, 20]; // hand-model points: index, middle, ring, pinky fingertips
+const PAD = 0.35; // where the finger presses, from its tip towards its last joint
 const MAX_HAND_FRET = 17; // a hand whose fingers sit further up is the plucking hand over the sound hole
 
 const dist = (f) => 1 - 2 ** (-f / 12);
@@ -119,11 +120,15 @@ export function fretHand(hands, neck) {
   let best = null;
   for (const lm of hands) {
     const tips = TIPS.map((i) => {
-      const [x, y] = lm[i];
+      // the finger presses with its pad, a little back from the very tip towards the last joint
+      // (the model's point i - 1): the fingers arch over from the treble side, so the tip itself
+      // overshoots the string by most of a string's spacing
+      const x = lm[i][0] + PAD * (lm[i - 1][0] - lm[i][0]);
+      const y = lm[i][1] + PAD * (lm[i - 1][1] - lm[i][1]);
       const { D, v } = neck.toNeck(x, y);
       // a pressing fingertip sits on a string; seen from the side it can look a little off the board
       const on = D > -0.04 && D < 0.75 && Math.abs(v) < halfWidth(D) * 1.6;
-      return { x, y, f: fretAt(D), on };
+      return { x, y, f: fretAt(D), D, v, on };
     });
     const on = tips.filter((t) => t.on);
     if (on.length < 2) continue;
@@ -236,6 +241,7 @@ export function createVideoPanel({ box, audio, capo, tabHandAt, onChange }) {
     if (!blob) {
       box.hidden = true;
       v.removeAttribute('src');
+      v.load(); // let go of the old video
       return;
     }
     st.src = URL.createObjectURL(blob);
@@ -450,7 +456,9 @@ export function createVideoPanel({ box, audio, capo, tabHandAt, onChange }) {
     st.hints = st.samples.map((s) => {
       const neck = neckFor(s.t, s.thumb);
       const hand = neck && fretHand(s.hands, neck);
-      return { t: s.t, h: hand ? hand.h : null, marked: !!neck };
+      // the fingertips on the board: fret (from the nut, fractional) and mm across from the middle
+      const tips = hand ? hand.tips.filter((p) => p.on).map((p) => ({ f: p.f, v: p.v, D: p.D })) : [];
+      return { t: s.t, h: hand ? hand.h : null, tips, marked: !!neck };
     });
     const marked = st.hints.filter((x) => x.marked).length;
     const seen = st.hints.filter((x) => x.h != null).length;
@@ -463,7 +471,11 @@ export function createVideoPanel({ box, audio, capo, tabHandAt, onChange }) {
     onChange();
   }
 
-  /** For assignFrets: (time) => {h, w}, h = hand position counted from the capo, w = how sure (0-1). */
+  /**
+   * For assignFrets: (time) => {h, w, tips}. h = hand position counted from the capo, w = how sure
+   * (0-1), tips = the fingertips on the board in the nearest frame [{f, v, D}] (f counted from the capo,
+   * v = mm across the board from its middle, sign depending on the camera; D = share of the scale).
+   */
   function handHint(capoFret) {
     if (!st.hints || !ui.use.checked) return null;
     const hs = st.hints;
@@ -477,13 +489,17 @@ export function createVideoPanel({ box, audio, capo, tabHandAt, onChange }) {
       }
       const near = [];
       let total = 0;
+      let closest = null;
       for (let i = lo; i < hs.length && hs[i].t <= time + NEAR; i++) {
         if (!hs[i].marked) continue;
         total++;
-        if (hs[i].h != null) near.push(hs[i].h);
+        if (hs[i].h == null) continue;
+        near.push(hs[i].h);
+        if (!closest || Math.abs(hs[i].t - time) < Math.abs(closest.t - time)) closest = hs[i];
       }
       if (!near.length) return null;
-      return { h: Math.max(1, median(near) - capoFret), w: near.length / total };
+      const tips = closest.tips.map((p) => ({ f: p.f - capoFret, v: p.v, D: p.D }));
+      return { h: Math.max(1, median(near) - capoFret), w: near.length / total, tips };
     };
   }
 
@@ -590,7 +606,22 @@ export function createVideoPanel({ box, audio, capo, tabHandAt, onChange }) {
     draw,
     setRange: (fn) => (tabRange = fn),
     // for checking from the dev console
-    debug: { st, neckFromMarks, fretHand, follow, refreshHints, setMarks: (marks, time = v.currentTime) => {
+    debug: { st, neckFromMarks, fretHand, follow, refreshHints,
+      /** {samples, shots, necks: [{time, marks}]} as saved from st (thumbs as plain arrays): skips following again */
+      restore: (saved) => {
+        const f32 = (a) => Float32Array.from(a);
+        st.samples = saved.samples.map((s) => ({ ...s, thumb: f32(s.thumb) }));
+        st.shots = saved.shots.map((s) => ({ ...s, thumb: f32(s.thumb) }));
+        st.necks = saved.necks.map((n) => ({ time: n.time, thumb: f32(n.thumb), neck: neckFromMarks(n.marks) }));
+        showButtons();
+        refreshHints();
+      },
+      save: () => JSON.stringify({
+        samples: st.samples.map((s) => ({ ...s, thumb: [...s.thumb].map(Math.round) })),
+        shots: st.shots.map((s) => ({ ...s, thumb: [...s.thumb].map(Math.round) })),
+        necks: st.necks.map((n) => ({ time: n.time, thumb: [...n.thumb].map(Math.round), marks: n.neck.marks })),
+      }),
+      setMarks: (marks, time = v.currentTime) => {
       const neck = neckFromMarks(marks);
       if (neck) st.necks.push({ time, thumb: thumbOf(v), neck });
       showButtons();

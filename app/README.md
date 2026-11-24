@@ -42,7 +42,13 @@ python server.py     # local page at http://localhost:8000
    picture (a homography from fret distances, D(f) = 1 − 2^(−f/12), and the board's width). Google's
    MediaPipe hand model finds both hands in a frame every 0.25 s; the hand whose fingertips sit on the
    neck below fret 17 is the fretting hand, and the fret under its lowest fingertip is its position.
-   `assignFrets` then charges for holding the hand more than a fret away from where the video shows it.
+   `assignFrets` then charges for holding the hand more than a fret away from where the video shows it,
+   and for every fretted note with no fingertip seen near its string and fret (the finger presses with
+   its pad, a third of the way back from the tip; which way the strings run across the picture is
+   found from the notes, `stringSide`). A note the hand can't reach where the video shows it is moved
+   an octave, or dropped if that octave is already played (`fitNotesToHand`): checked against Nothing
+   Else Matters' on-screen tab these were all overtones. "Compare with the song" scores that a little
+   lower, because the song's recording is heard with the same overtones.
    A cut to another camera angle (a jump in a 32×18 grey thumbnail) ends the marks' shot; a later shot
    that looks the same reuses them, others need their own marks. The video's capo field sets the capo.
 5. **Rhythm** – the overall tempo is estimated (`estimateTempo`), then every beat is tracked so the grid

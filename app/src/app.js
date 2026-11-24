@@ -2,6 +2,7 @@ import { BasicPitch, outputToNotesPoly, addPitchBendsToNoteEvents, noteFramesToT
 import {
   TUNINGS, midiToHz, noteName, playableRange, groupEvents, assignFrets, estimateTempo,
   quantize, toMeasures, renderText, cellString, removeGhostNotes, findTechniques, techniqueMarks, TECH_LEGEND, trackBeats, findBars, splitBeats,
+  fitNotesToHand, stringSide, HAND,
 } from './tab.js';
 import { createHandView } from './hands.js';
 import { createVideoPanel } from './video.js';
@@ -38,7 +39,8 @@ const state = {
 window.tabmaker = {
   state, compare: () => compare(), retab: () => retab(), listen: () => listen(),
   runModel: (...a) => runModel(...a), heardNotes: (...a) => heardNotes(...a), matched: (...a) => matched(...a),
-  lib: { outputToNotesPoly, addPitchBendsToNoteEvents, noteFramesToTime, estimateTempo, trackBeats, findBars, splitBeats },
+  lib: { outputToNotesPoly, addPitchBendsToNoteEvents, noteFramesToTime, estimateTempo, trackBeats, findBars, splitBeats, stringSide, HAND },
+  opts: { fitOctaves: true }, // dev switch: move notes the video hand can't reach by an octave
 };
 
 // The player's video (a link's picture, or an uploaded video file): mark the neck, follow the hand,
@@ -213,7 +215,11 @@ function retab() {
   if (el.clean.checked) notes = removeGhostNotes(notes, { faintOnset: onsetThreshold + 0.1, why });
 
   const grouped = groupEvents(notes, { low, high, minAmp: +el.minAmp.value / 100, mode: el.mode.value });
-  const events = techniqueMarks(assignFrets(findTechniques(grouped, { level: el.tech.value, contours }), tuning, capo, maxFret, video.handHint(capo)));
+  // the player's video (if followed): notes go where the hand was, and notes it can't reach there move an octave
+  const handAt = video.handHint(capo);
+  const heard = findTechniques(grouped, { level: el.tech.value, contours });
+  const found = window.tabmaker.opts.fitOctaves ? fitNotesToHand(heard, tuning, capo, maxFret, handAt, why) : heard;
+  const events = techniqueMarks(assignFrets(found, tuning, capo, maxFret, handAt));
   if (!events.length) {
     el.tab.textContent = 'No guitar notes were found. Try raising the sensitivity or lowering "Ignore quiet notes".';
     state.tab = null;
