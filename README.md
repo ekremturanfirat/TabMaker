@@ -19,4 +19,12 @@ More in [How to use.txt](How%20to%20use.txt). How it works and how to build it: 
 
 Only use songs you have the right to use.
 
+## License
+
+Copyright © Ekrem Turan Fırat. TabMaker is licensed under the
+[CERN Open Hardware Licence Version 2 – Strongly Reciprocal](LICENSE) (CERN-OHL-S v2).
+
+The note model in `app/public/model/` is Spotify's [Basic Pitch](https://github.com/spotify/basic-pitch-ts),
+under its own [Apache 2.0 licence](app/public/model/LICENSE).
+
 Made by [Ekrem Turan Fırat](https://ekremturanfirat.com/).
