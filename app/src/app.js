@@ -383,23 +383,32 @@ function renderHtml() {
   const labelW = Math.max(...tuning.labels.map((l) => l.length));
   const esc = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
+  // every bar gets the same width, a slot sized for a typical bar (so the rows fill the line); a rare
+  // longer bar takes two slots instead of making every bar wide. A bar's extra room is spread evenly
+  // over its columns, so the notes keep their places in time.
+  // on screen an empty grid step is one dash wide (the .txt keeps two), so more bars fit on a line
+  const cell = (col, s) => (col ? cellString(col, s) : '-');
+  const natural = measures.map((meas) => meas.reduce((a, c) => a + cell(c, 0).length, 0));
+  const line = avail - labelW - 1;
+  const typical = [...natural].sort((a, b) => a - b)[Math.floor(natural.length * 0.9)] || 1;
+  const perRow = Math.max(1, Math.floor(line / (typical + 1)));
+  const slotW = Math.floor(line / perRow); // a bar and its closing bar line
+  const slots = natural.map((w) => Math.ceil((w + 1) / slotW));
+  const barW = natural.map((w, i) => (slots[i] > perRow ? w : slots[i] * slotW - 1));
+  const pad = measures.map((meas, i) => {
+    const extra = barW[i] - natural[i];
+    return meas.map((_, k) => Math.floor(((k + 1) * extra) / meas.length) - Math.floor((k * extra) / meas.length));
+  });
+
   let html = '';
   let m = 0;
   while (m < measures.length) {
-    // fit as many bars as the width allows
-    let width = labelW + 1;
     let n = 0;
-    while (m + n < measures.length) {
-      const w = measures[m + n].reduce((a, c) => a + cellString(c, 0).length, 0) + 1;
-      if (n > 0 && width + w > avail) break;
-      width += w;
-      n++;
-    }
+    for (let used = 0; m + n < measures.length && (n === 0 || used + slots[m + n] <= perRow); n++) used += slots[m + n];
     const row = measures.slice(m, m + n);
     let nums = ' '.repeat(labelW + 1);
     row.forEach((meas, i) => {
-      const w = meas.reduce((a, c) => a + cellString(c, 0).length, 0) + 1;
-      nums += `<span class="bar-no" data-bar="${m + i}">${String(m + i + 1)}</span>${' '.repeat(Math.max(0, w - String(m + i + 1).length))}`;
+      nums += `<span class="bar-no" data-bar="${m + i}">${String(m + i + 1)}</span>${' '.repeat(Math.max(0, barW[m + i] + 1 - String(m + i + 1).length))}`;
     });
     html += `<div class="system">${nums}\n`;
     for (let s = 5; s >= 0; s--) {
@@ -411,9 +420,10 @@ function renderHtml() {
           // technique marks are drawn as symbols (drawTechniques); the letters' room stays as dashes
           const played = col && col.frets[s] >= 0;
           const fret = played && String(col.frets[s]);
+          const more = '-'.repeat(pad[m + i][k]);
           html += played
-            ? `<span class="c n" data-i="${base + k}" data-s="${s}"><b>${fret}</b>${'-'.repeat(cellString(col, s).length - fret.length)}</span>`
-            : `<span class="c" data-i="${base + k}">${cellString(col, s)}</span>`;
+            ? `<span class="c n" data-i="${base + k}" data-s="${s}"><b>${fret}</b>${'-'.repeat(cell(col, s).length - fret.length)}${more}</span>`
+            : `<span class="c" data-i="${base + k}">${cell(col, s)}${more}</span>`;
         });
         html += '<i class="bl">|</i>';
       });
