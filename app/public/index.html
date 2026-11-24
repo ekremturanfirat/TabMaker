@@ -105,6 +105,21 @@
   .handview svg { display: block; width: 100%; height: auto; max-height: 270px; }
   .hv-cap { padding: 6px 12px 8px; font-size: 13px; line-height: 1.45; color: var(--muted); border-top: 1px solid var(--line); min-height: 3.4em; }
   .hv-cap b { color: var(--text); }
+
+  /* the player's video, with the fret lines from the neck marks */
+  /* next to the hand view in the sticky player (below it on narrow screens) */
+  .videopanel { flex: 1 1 380px; align-self: stretch; background: #0f0d0c; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .player:has(.videopanel:not([hidden])) .handview, .player:has(.videopanel:not([hidden])) .fretboard { flex: 1 1 520px; }
+  .vp-stage { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; }
+  .vp-video { display: block; max-width: 100%; max-height: 300px; width: auto; height: auto; }
+  /* too narrow for side by side: the video and the hand view would fill the screen, so stop sticking */
+  @media (max-width: 1000px) { .player:has(.videopanel:not([hidden])) { position: static; } }
+  .vp-over { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+  .vp-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 10px 0; font-size: 13px; color: var(--muted); }
+  .vp-bar button { padding: 5px 10px; font-weight: 500; }
+  .vp-bar input[type=number] { width: 4.2em; padding: 4px 6px; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+  .vp-msg { padding: 6px 10px 8px; }
+  .videopanel [hidden] { display: none !important; } /* .player label sets display, which would show hidden ones */
   .hv-title { fill: #d9cbbb; font: 700 11px "Segoe UI", system-ui, sans-serif; letter-spacing: .06em; paint-order: stroke; stroke: #0f0d0c; stroke-width: 3px; stroke-linejoin: round; }
   .hv-split { stroke: var(--line); }
   .hv-board { fill: url(#hv-g-board); }
@@ -291,6 +306,7 @@
       <label>hands <select id="handsMode"><option value="3d">3D view</option><option value="flat">flat fretboard</option><option value="off">hidden</option></select></label>
       <div id="handview" class="handview"></div>
       <div id="fretboard" class="fretboard" hidden></div>
+      <div id="videoPanel" class="videopanel" hidden></div>
     </div>
     <div id="tab"></div>
     <div class="notes">
@@ -303,7 +319,7 @@
         <li>Playing techniques: an arc joins a hammer-on or pull-off, a slanted line is a slide up / down, a curved arrow is a bend (½ = half step, full = whole step) and the arrow back down its release, a wavy line is vibrato. In the .txt they are written h, p, /, \, b, r and ~. They are guessed from the sound; set “Techniques” in Options to see more or none.</li>
         <li>“Play the tab” plays back what the tab says, so you can compare it with the real song by ear. Tick “tab along” to hear the tab quietly on top of the song: wrong notes stand out.</li>
         <li>“Compare with the song” plays the tab, listens to it the way it listened to the song, and matches the notes. Bar numbers turn green (sounds like the song), yellow or red (different); hover one to see which notes are missing or extra.</li>
-        <li>The AI hears notes, not hands: it picks the comfiest string/fret for each note, which may differ from the player’s.</li>
+        <li>The AI hears notes, not hands: it picks the comfiest string/fret for each note, which may differ from the player’s. <b>If the song is a video</b> (a link, or an uploaded video file), the video shows up above the tab: pause where the neck is clearly visible, press <b>Mark the neck</b> and click the nut and the 12th fret wire (blue lines appear on the fret wires; click a third wire if they drift). Set the capo if there is one (orange line), then press <b>Follow the hand</b>: a hand model finds the fretting hand in every frame, and the tab keeps the hand where the player had it. Green dots = the fingertips it sees; the dashed orange line = where the tab puts the index finger. After a cut to another camera angle, mark the neck there too.</li>
         <li>Full-band songs: vocals, bass and keys get picked up too. Use “Melody only” or “Bass only” and the sensitivity slider to clean it up.</li>
       </ul>
     </div>

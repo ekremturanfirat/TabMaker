@@ -373,7 +373,13 @@ function shapeCost(f) {
 
 // The fretting hand: the index finger sits at fret `hand`, fingers 1-4 cover hand..hand+3
 // (the pinky can stretch one more). Open strings need no finger and leave the hand free to move.
-const HAND = { posK: 0.05, pinky: 0.15, stretch: 2, shiftBase: 1, shiftPerFret: 0.5, speedOk: 12, sameFretK: 0.6 };
+const HAND = { posK: 0.05, pinky: 0.15, stretch: 2, shiftBase: 1, shiftPerFret: 0.5, speedOk: 12, sameFretK: 0.6, videoK: 2, videoSlack: 1 };
+
+/** Cost of holding the hand at h when the video shows it at hint.h (w: how sure the video is). The
+ * fingertip seen in the picture can be a fret off, so a fret either way is free. */
+function videoCost(h, hint) {
+  return hint ? hint.w * HAND.videoK * Math.max(0, Math.abs(h - hint.h) - HAND.videoSlack) : 0;
+}
 
 /** Hand positions (index-finger fret) that can play fingering f, with the cost of holding it there. */
 function handOptions(f, maxFret) {
@@ -420,15 +426,19 @@ export function handFingers(frets, h) {
  * fingering x hand position) so the whole passage is comfortable to play: the hand stays in place
  * where it can and never has to jump far in a short time. Returns events with .frets, .hand
  * (index-finger fret) and .fingers (see handFingers) added.
+ * handAt(time) (optional, from the player's video): {h, w}, where the player's hand was (h counted
+ * from the capo) and how sure that is (0-1); the tab then keeps the hand there where it can.
  */
-export function assignFrets(events, tuning, capo, maxFret) {
+export function assignFrets(events, tuning, capo, maxFret, handAt = null) {
   const states = events.map((ev) => {
     const bent = ev.bend || ev.vibrato; // can't bend or shake an open string
+    const hint = handAt?.(ev.time);
     const fs = eventFingerings(ev, tuning, capo, maxFret)
       .map((f) => ({ f, c: shapeCost(f) + (bent && f.includes(0) ? 5 : 0) }))
       .sort((a, b) => a.c - b.c)
       .slice(0, 40);
-    return fs.flatMap(({ f, c }) => handOptions(f, maxFret).map((o) => ({ f, h: o.h, c: c + o.c, str: f.findIndex((x) => x >= 0) })));
+    return fs.flatMap(({ f, c }) =>
+      handOptions(f, maxFret).map((o) => ({ f, h: o.h, c: c + o.c + videoCost(o.h, hint), str: f.findIndex((x) => x >= 0) })));
   });
 
   let prev = null;

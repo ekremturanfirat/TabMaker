@@ -20,6 +20,13 @@ await build({
 });
 for (const f of ['model.json', 'group1-shard1of1.bin']) copyFileSync(join(model, f), join(out, 'model', f));
 copyFileSync('node_modules/@spotify/basic-pitch/LICENSE', join(out, 'model', 'LICENSE'));
+// the hand model for uploaded videos (video.js loads it only when the hand is followed)
+mkdirSync(join(out, 'mediapipe', 'wasm'), { recursive: true });
+copyFileSync('node_modules/@mediapipe/tasks-vision/vision_bundle.mjs', join(out, 'mediapipe', 'vision_bundle.mjs'));
+for (const f of ['vision_wasm_internal.js', 'vision_wasm_internal.wasm']) {
+  copyFileSync(`node_modules/@mediapipe/tasks-vision/wasm/${f}`, join(out, 'mediapipe', 'wasm', f));
+}
+for (const f of ['hand_landmarker.task', 'LICENSE']) copyFileSync(join('public', 'mediapipe', f), join(out, 'mediapipe', f));
 
 // Same page, plus the site's analytics tag and a link back home.
 // index.html is the public upload-only page.

@@ -32,7 +32,10 @@ LOCAL_HOSTS = {f"localhost:{PORT}", f"127.0.0.1:{PORT}"}
 MAX_SECONDS = 20 * 60  # refuse videos longer than 20 minutes
 
 mimetypes.add_type("application/javascript", ".js")
+mimetypes.add_type("application/javascript", ".mjs")
+mimetypes.add_type("application/wasm", ".wasm")
 mimetypes.add_type("audio/mp4", ".m4a")
+mimetypes.add_type("video/mp4", ".mp4")
 mimetypes.add_type("audio/webm", ".webm")
 mimetypes.add_type("audio/ogg", ".opus")
 
@@ -99,6 +102,33 @@ def fetch_audio(url):
     return files[0], meta
 
 
+def fetch_video(url):
+    """Download the picture of a video link (no sound, small: enough to see the player's hands),
+    kept next to its audio. H.264 mp4 plays in every browser."""
+    url = song_url(url)
+    folder = CACHE / hashlib.sha1(url.encode()).hexdigest()[:16]
+    found = [p for p in folder.glob("video.*") if not p.name.endswith(".part")]
+    if found:
+        return found[0]
+    folder.mkdir(parents=True, exist_ok=True)
+    opts = {
+        "format": "bestvideo[height<=480][vcodec^=avc1][ext=mp4]/bestvideo[height<=480][ext=mp4]/bestvideo[height<=720][ext=mp4]",
+        "outtmpl": str(folder / "video.%(ext)s"),
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "noprogress": True,
+        "js_runtimes": {"deno": {}, "node": {}},
+        "match_filter": yt_dlp.utils.match_filter_func(f"duration < {MAX_SECONDS}"),
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        ydl.extract_info(url, download=True)
+    found = [p for p in folder.glob("video.*") if not p.name.endswith(".part")]
+    if not found:
+        raise RuntimeError("This link has no video picture TabMaker can use.")
+    return found[0]
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(PUBLIC), **kwargs)
@@ -119,7 +149,24 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(200, {"ok": True})
         if parts.path == "/api/audio":
             return self.send_audio(urllib.parse.parse_qs(parts.query).get("url", [""])[0])
+        if parts.path == "/api/video":
+            return self.send_video(urllib.parse.parse_qs(parts.query).get("url", [""])[0])
         return super().do_GET()
+
+    def send_video(self, url):
+        if not url.startswith(("http://", "https://")):
+            return self.send_json(400, {"error": "Please paste a full link starting with http:// or https://"})
+        try:
+            path = fetch_video(url)
+        except Exception as exc:  # yt-dlp raises many different error types
+            msg = str(exc).replace("\x1b[0;31mERROR:\x1b[0m ", "").replace("ERROR: ", "")
+            return self.send_json(502, {"error": msg[:500]})
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def send_audio(self, url):
         if not url.startswith(("http://", "https://")):

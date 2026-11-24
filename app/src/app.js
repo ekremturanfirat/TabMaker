@@ -4,6 +4,7 @@ import {
   quantize, toMeasures, renderText, cellString, removeGhostNotes, findTechniques, techniqueMarks, TECH_LEGEND, trackBeats, findBars, splitBeats,
 } from './tab.js';
 import { createHandView } from './hands.js';
+import { createVideoPanel } from './video.js';
 
 const MODEL_RATE = 22050;
 const GRID_MOVED = 0.08; // seconds a note may move to its grid step before you can hear it
@@ -22,7 +23,7 @@ const el = {
   bpm: $('bpm'), bpmAuto: $('bpmAuto'), clean: $('clean'), tech: $('tech'), from: $('from'), to: $('to'), relisten: $('relisten'),
   sensVal: $('sensVal'), minAmpVal: $('minAmpVal'),
   fretboard: $('fretboard'), handview: $('handview'), handsMode: $('handsMode'),
-  compare: $('compare'), compareOut: $('compareOut'), along: $('along'),
+  compare: $('compare'), compareOut: $('compareOut'), along: $('along'), videoPanel: $('videoPanel'),
 };
 
 for (const [key, t] of Object.entries(TUNINGS)) el.tuning.add(new Option(t.name, key));
@@ -39,6 +40,28 @@ window.tabmaker = {
   runModel: (...a) => runModel(...a), heardNotes: (...a) => heardNotes(...a), matched: (...a) => matched(...a),
   lib: { outputToNotesPoly, addPitchBendsToNoteEvents, noteFramesToTime, estimateTempo, trackBeats, findBars, splitBeats },
 };
+
+// The player's video (a link's picture, or an uploaded video file): mark the neck, follow the hand,
+// and the tab keeps the hand where the player had it (see video.js)
+const video = createVideoPanel({
+  box: el.videoPanel,
+  audio: el.audio,
+  capo: el.capo,
+  tabHandAt: (t) => {
+    const ev = state.tab?.events;
+    if (!ev?.length) return null;
+    let i = 0;
+    while (i + 1 < ev.length && ev[i + 1].time <= t) i++;
+    return ev[i].hand + state.tab.capo;
+  },
+  onChange: () => retab(),
+});
+video.setRange(() => {
+  const dur = state.decoded?.duration ?? 0;
+  const from = Math.min(Math.max(0, parseFloat(el.from.value) || 0), dur);
+  return { from, to: Math.min(dur, parseFloat(el.to.value) || dur) };
+});
+window.tabmaker.video = video;
 
 // The website copy (tools/build-site.mjs) sets <body data-mode="static">: no server there,
 // so only file upload works. The page served by server.py on your PC can also use links.
@@ -65,7 +88,8 @@ async function run(getBlob) {
   el.error.hidden = true;
   el.go.disabled = true;
   try {
-    const { blob, title } = await getBlob();
+    video.load(null); // the last song's video goes now, not after the download
+    const { blob, title, picture } = await getBlob();
     state.blob = blob;
     state.title = title;
     showStage('Decoding audio…', null);
@@ -75,6 +99,8 @@ async function run(getBlob) {
     el.audio.src = URL.createObjectURL(blob);
     el.title.textContent = title;
     await listen();
+    // the picture comes after the tab: it only helps with where the hand is
+    if (picture) picture().then(video.load, (err) => video.unavailable(err.message || err));
   } catch (err) {
     console.error(err);
     showError(err.message || String(err));
@@ -97,7 +123,13 @@ async function fromLink(url) {
     throw new Error(body.error || `Download failed (${res.status})`);
   }
   const title = decodeURIComponent(res.headers.get('X-Title') || 'Untitled');
-  return { blob: await res.blob(), title };
+  return { blob: await res.blob(), title, picture: () => fetchVideo(url) };
+}
+
+async function fetchVideo(url) {
+  const res = await fetch(`api/video?url=${encodeURIComponent(url)}`, { headers: { 'X-TabMaker': '1' } });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Video download failed (${res.status})`);
+  return res.blob();
 }
 
 /** Resample the chosen part of the song to 22.05 kHz mono and run the note-detection model. */
@@ -181,7 +213,7 @@ function retab() {
   if (el.clean.checked) notes = removeGhostNotes(notes, { faintOnset: onsetThreshold + 0.1, why });
 
   const grouped = groupEvents(notes, { low, high, minAmp: +el.minAmp.value / 100, mode: el.mode.value });
-  const events = techniqueMarks(assignFrets(findTechniques(grouped, { level: el.tech.value, contours }), tuning, capo, maxFret));
+  const events = techniqueMarks(assignFrets(findTechniques(grouped, { level: el.tech.value, contours }), tuning, capo, maxFret, video.handHint(capo)));
   if (!events.length) {
     el.tab.textContent = 'No guitar notes were found. Try raising the sensitivity or lowering "Ignore quiet notes".';
     state.tab = null;
@@ -1057,7 +1089,7 @@ el.form.addEventListener('submit', (e) => {
 
 el.file.addEventListener('change', () => {
   const f = el.file.files[0];
-  if (f) run(async () => ({ blob: f, title: f.name.replace(/\.[^.]+$/, '') }));
+  if (f) run(async () => ({ blob: f, title: f.name.replace(/\.[^.]+$/, ''), picture: f.type.startsWith('video/') ? async () => f : null }));
   el.file.value = '';
 });
 
