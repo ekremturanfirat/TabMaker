@@ -1,6 +1,6 @@
 # Builds the website version of TabMaker and publishes it with GitHub Pages.
 # Because ekremturanfirat.github.io uses the custom domain ekremturanfirat.com,
-# this repo's Pages site is served at https://ekremturanfirat.com/tabmaker/
+# this repo's Pages site is served at https://ekremturanfirat.com/TabMaker/
 name: Deploy TabMaker to Pages
 
 on:
@@ -41,7 +41,7 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: _site
       - name: Deploy to GitHub Pages

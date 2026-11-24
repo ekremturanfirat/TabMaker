@@ -9,7 +9,7 @@ It installs Python/Deno if missing, updates yt-dlp, starts `server.py`,
 and opens the TabMaker page at http://localhost:8000.
 
 Why a local app and not only the website: a static website can't fetch a song from a link, so links
-work in the app, and the website (https://ekremturanfirat.com/tabmaker/) takes uploaded files.
+work in the app, and the website (https://ekremturanfirat.com/TabMaker/) takes uploaded files.
 
 Developers:
 

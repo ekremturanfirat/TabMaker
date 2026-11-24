@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "tabmaker",
   "version": "1.0.0",
   "description": "Paste a song link, get guitar tab",
@@ -8,7 +8,7 @@
     "build:site": "node tools/build-site.mjs ../_site",
     "start": "python server.py --open"
   },
-  "license": "ISC",
+  "license": "GPL-3.0-or-later",
   "dependencies": {
     "@spotify/basic-pitch": "^1.0.1"
   },
