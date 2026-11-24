@@ -28,7 +28,7 @@ for (const f of ['vision_wasm_internal.js', 'vision_wasm_internal.wasm']) {
 }
 for (const f of ['hand_landmarker.task', 'LICENSE']) copyFileSync(join('public', 'mediapipe', f), join(out, 'mediapipe', f));
 
-// Same page, plus the site's analytics tag and a link back home.
+// Same page, plus the site's analytics tag, header and footer (as on ekremturanfirat.com).
 // index.html is the public upload-only page.
 const analytics = `
 <!-- Google tag (gtag.js) -->
@@ -42,6 +42,28 @@ const analytics = `
 <meta name="description" content="TabMaker: upload a song and get guitar tab, made by AI right in your browser.">
 <meta name="author" content="Ekrem Turan Fırat">
 </head>`;
+const siteHeader = `<header class="site-header">
+  <div class="container">
+    <a class="brand" href="/">Ekrem Turan Fırat</a>
+    <nav>
+      <a href="/cv/">CV</a>
+      <a href="/projects/" aria-current="page">Projects</a>
+      <a href="/blog/">Blog</a>
+    </nav>
+  </div>
+</header>
+`;
+const siteFooter = `
+<footer class="site-footer">
+  <div class="container">
+    <p>© Ekrem Turan Fırat · Built with <a href="https://claude.com/claude-code" target="_blank" rel="noopener noreferrer">Claude Code</a></p>
+    <p>
+      <a href="mailto:me@ekremturanfirat.com">E-Mail</a> ·
+      <a href="https://www.linkedin.com/in/ekremturanfirat/" target="_blank" rel="noopener noreferrer">LinkedIn</a> ·
+      <a href="https://github.com/ekremturanfirat" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </p>
+  </div>
+</footer>`;
 // ?v=<hash> makes browsers fetch the new app.js right after an update instead of a cached old one
 const version = createHash('sha1').update(readFileSync(join(out, 'app.js'))).digest('hex').slice(0, 10);
 const page = readFileSync('public/index.html', 'utf8').replace('src="app.js"', `src="app.js?v=${version}"`);
@@ -50,6 +72,7 @@ writeFileSync(
   page
     .replace('</head>', analytics)
     .replace('<body>', '<body data-mode="static">')
-    .replace('<main>', '<main>\n  <a class="back" href="/projects/">← Ekrem Turan Fırat · Projects</a>'),
+    .replace('<main>', siteHeader + '<main>')
+    .replace('</main>', '</main>' + siteFooter),
 );
 console.log(`Website build written to ${out}`);
